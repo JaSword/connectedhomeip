@@ -40,6 +40,8 @@
 
 // Define below to enable extremely verbose BLE-specific debug logging.
 #undef CHIP_BTP_PROTOCOL_ENGINE_DEBUG_LOGGING_ENABLED
+// 使能该宏定义，会导致段错误
+// #define CHIP_BTP_PROTOCOL_ENGINE_DEBUG_LOGGING_ENABLED // Added by Sword for debugging
 
 #ifdef CHIP_BTP_PROTOCOL_ENGINE_DEBUG_LOGGING_ENABLED
 #define ChipLogDebugBtpEngine(MOD, MSG, ...) ChipLogError(MOD, MSG, ##__VA_ARGS__)

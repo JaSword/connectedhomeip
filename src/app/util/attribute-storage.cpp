@@ -603,11 +603,13 @@ EmberAfStatus emAfReadOrWriteAttribute(EmberAfAttributeSearchRecord * attRecord,
                 if (emAfMatchCluster(cluster, attRecord))
                 { // Got the cluster
                     uint16_t attrIndex;
+                    ChipLogDetail(Zcl, "Sword Debugging Cluster=" ChipLogFormatMEI, ChipLogValueMEI(attRecord->clusterId));
                     for (attrIndex = 0; attrIndex < cluster->attributeCount; attrIndex++)
                     {
                         EmberAfAttributeMetadata * am = &(cluster->attributes[attrIndex]);
                         if (emAfMatchAttribute(cluster, am, attRecord))
                         { // Got the attribute
+                             ChipLogDetail(Zcl, "Sword Debugging AttributeId=" ChipLogFormatMEI, ChipLogValueMEI(attRecord->attributeId));
                             // If passed metadata location is not null, populate
                             if (metadata != NULL)
                             {
@@ -650,6 +652,7 @@ EmberAfStatus emAfReadOrWriteAttribute(EmberAfAttributeSearchRecord * attRecord,
                                 // Is the attribute externally stored?
                                 if (am->mask & ATTRIBUTE_MASK_EXTERNAL_STORAGE)
                                 {
+                                    ChipLogDetail(Zcl, "Sword Debugging Attribute Externally Stored");
                                     return (write ? emberAfExternalAttributeWriteCallback(
                                                         attRecord->endpoint, attRecord->clusterId, am,
                                                         emAfGetManufacturerCodeForAttribute(cluster, am), buffer, index)

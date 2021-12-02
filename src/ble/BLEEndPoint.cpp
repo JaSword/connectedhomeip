@@ -52,6 +52,7 @@
 
 // Define below to enable extremely verbose, BLE end point-specific debug logging.
 #undef CHIP_BLE_END_POINT_DEBUG_LOGGING_ENABLED
+#define CHIP_BLE_END_POINT_DEBUG_LOGGING_ENABLED // Added by Sword for debugging
 
 #ifdef CHIP_BLE_END_POINT_DEBUG_LOGGING_ENABLED
 #define ChipLogDebugBleEndPoint(MOD, MSG, ...) ChipLogError(MOD, MSG, ## __VA_ARGS__)

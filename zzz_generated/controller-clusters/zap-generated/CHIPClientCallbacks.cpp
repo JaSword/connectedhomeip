@@ -1668,6 +1668,10 @@ bool emberAfOperationalCredentialsClusterCertificateChainResponseCallback(Endpoi
 {
     ChipLogProgress(Zcl, "CertificateChainResponse:");
     ChipLogProgress(Zcl, "  Certificate: %zu", Certificate.size());
+    // Added By Sword
+    const uint8_t *data = Certificate.data();
+    ChipLogProgress(Zcl, "  Certificate data: %02X,%02X,%02X,%02X,%02X,%02X,%02X,%02X,%02X,%02X", data[0],data[1],data[2],data[3],data[4],data[5],data[6],data[7],data[8],data[9]);
+    // End Added
 
     GET_CLUSTER_RESPONSE_CALLBACKS("OperationalCredentialsClusterCertificateChainResponseCallback");
 

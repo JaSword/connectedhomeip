@@ -1688,6 +1688,12 @@ CHIP_ERROR ValidateCertificateChain(const uint8_t * rootCertificate, size_t root
 
     // TODO: If any specific error occurs here, it should be flagged accordingly
     status = X509_verify_cert(verifyCtx);
+    // Added By Sword
+    if (status != 1) {
+        long nCode = X509_STORE_CTX_get_error(verifyCtx);
+        ChipLogError(Crypto, "X509_verify_cert error reason: %s\n", X509_verify_cert_error_string(nCode));
+    }
+    // End Added
     VerifyOrExit(status == 1, err = CHIP_ERROR_CERT_NOT_TRUSTED);
 
     err = CHIP_NO_ERROR;

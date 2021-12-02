@@ -71,7 +71,10 @@ gcc_toolchain("linux_arm_clang") {
 }
 
 gcc_toolchain("linux_arm64_gcc") {
-  _toolprefix = "aarch64-linux-gnu-"
+  # Modified by Sword
+   _toolprefix = "aarch64-linux-gnu-"
+  # _toolprefix = "aarch64-buildroot-linux-gnu-"
+  # End Modified
 
   cc = "${_toolprefix}gcc"
   cxx = "${_toolprefix}g++"

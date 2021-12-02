@@ -74,6 +74,7 @@ void TestDevice_EstablishSessionDirectly(nlTestSuite * inSuite, void * inContext
     exchangeMgr.Init(&sessionManager);
     messageCounterManager.Init(&exchangeMgr);
 
+    #if 0
     ControllerDeviceInitParams params = {
         .transportMgr    = &transportMgr,
         .sessionManager  = &sessionManager,
@@ -83,6 +84,20 @@ void TestDevice_EstablishSessionDirectly(nlTestSuite * inSuite, void * inContext
         .idAllocator     = &idAllocator,
         .fabricsTable    = fabrics,
     };
+    #endif
+    
+    #if 1
+    // Modified by Sword
+    ControllerDeviceInitParams params;
+    params.transportMgr    = &transportMgr;
+    params.sessionManager  = &sessionManager;
+    params.exchangeMgr     = &exchangeMgr;
+    params.inetLayer       = &inetLayer;
+    params.storageDelegate = nullptr;
+    params.idAllocator     = &idAllocator;
+    params.fabricsTable    = fabrics;
+    #endif
+
     Device device;
     NodeId mockNodeId           = 1;
     FabricIndex mockFabricIndex = 1;

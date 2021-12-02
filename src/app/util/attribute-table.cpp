@@ -664,6 +664,7 @@ EmberAfStatus emAfReadAttribute(EndpointId endpoint, ClusterId cluster, Attribut
             emberAfAttributesFlush();
         }
     }
+    emberAfAttributesPrintln("Sword Debugging emAfReadAttribute: status 0x%x", status);
 
     return status;
 }

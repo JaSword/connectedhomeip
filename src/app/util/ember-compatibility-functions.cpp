@@ -200,6 +200,7 @@ CHIP_ERROR ReadSingleClusterData(const ConcreteAttributePath & aPath, TLV::TLVWr
         // into status responses, unless our caller already does that.
         AttributeValueEncoder valueEncoder(apWriter);
         ReturnErrorOnFailure(attrOverride->Read(aPath, valueEncoder));
+        ChipLogDetail(DataManagement,"Sword Debugging Enter attrOverride Process!");
 
         if (valueEncoder.TriedEncode())
         {
@@ -216,6 +217,7 @@ CHIP_ERROR ReadSingleClusterData(const ConcreteAttributePath & aPath, TLV::TLVWr
             return CHIP_NO_ERROR;
         }
     }
+    ChipLogDetail(DataManagement,"Sword Debugging Break attrOverride Process!");
 
     EmberAfAttributeType attributeType;
     EmberAfStatus status;

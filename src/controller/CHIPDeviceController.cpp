@@ -587,6 +587,7 @@ void DeviceController::OnNodeIdResolutionFailed(const chip::PeerId & peer, CHIP_
 
 ControllerDeviceInitParams DeviceController::GetControllerDeviceInitParams()
 {
+    #if 0
     return ControllerDeviceInitParams{
         .transportMgr    = mSystemState->TransportMgr(),
         .sessionManager  = mSystemState->SessionMgr(),
@@ -597,6 +598,22 @@ ControllerDeviceInitParams DeviceController::GetControllerDeviceInitParams()
         .fabricsTable    = mSystemState->Fabrics(),
         .imDelegate      = mSystemState->IMDelegate(),
     };
+    #endif
+
+    #if 1
+    // Modified by Sword
+    ControllerDeviceInitParams params;
+    params.transportMgr    = mSystemState->TransportMgr();
+    params.sessionManager  = mSystemState->SessionMgr();
+    params.exchangeMgr     = mSystemState->ExchangeMgr();
+    params.inetLayer       = mSystemState->InetLayer();
+    params.storageDelegate = mStorageDelegate;
+    params.idAllocator     = &mIDAllocator;
+    params.fabricsTable    = mSystemState->Fabrics();
+    params.imDelegate      = mSystemState->IMDelegate();
+    return params;
+    #endif
+
 }
 
 DeviceCommissioner::DeviceCommissioner() :

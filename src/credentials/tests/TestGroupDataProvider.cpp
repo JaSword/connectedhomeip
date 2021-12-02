@@ -474,11 +474,33 @@ void TestKeys(nlTestSuite * apSuite, void * apContext)
 
     // Pairs keys0[a|b], keys1[a|b] have different values. [b] is used as Get target, so it
     // should get overwritten with the values from [a].
+    #if 0
     KeySet keys0a                  = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 3 };
     KeySet keys0b                  = { .policy = KeySet::SecurityPolicy::kLowLatency, .num_keys_used = 2 };
     KeySet keys1a                  = { .policy = KeySet::SecurityPolicy::kLowLatency, .num_keys_used = 3 };
     KeySet keys1b                  = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 2 };
     KeySet keys3                   = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 2 };
+    #endif
+
+    #if 1
+    // Modified by Sword
+    KeySet keys0a;
+    keys0a.policy = KeySet::SecurityPolicy::kStandard;
+    keys0a.num_keys_used = 3;
+    KeySet keys0b;
+    keys0b.policy = KeySet::SecurityPolicy::kLowLatency;
+    keys0b.num_keys_used = 2;
+    KeySet keys1a;
+    keys1a.policy = KeySet::SecurityPolicy::kLowLatency;
+    keys1a.num_keys_used = 3;
+    KeySet keys1b;
+    keys1b.policy = KeySet::SecurityPolicy::kStandard;
+    keys1b.num_keys_used = 2;
+    KeySet keys3;
+    keys3.policy = KeySet::SecurityPolicy::kStandard;
+    keys3.num_keys_used = 2;
+    #endif
+
     chip::FabricIndex kFabricIndex = 1;
     CHIP_ERROR err                 = CHIP_NO_ERROR;
 
@@ -532,9 +554,25 @@ void TestKeysIterator(nlTestSuite * apSuite, void * apContext)
     GroupDataProvider * groups = GetGroupDataProvider();
     NL_TEST_ASSERT(apSuite, CHIP_NO_ERROR == groups->Init());
 
+    #if 0
     KeySet keys0                   = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 3 };
     KeySet keys1                   = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 2 };
     KeySet keys2                   = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 3 };
+    #endif
+
+    #if 1
+    // Modified by Sword
+    KeySet keys0;
+    keys0.policy = KeySet::SecurityPolicy::kStandard;
+    keys0.num_keys_used = 3;
+    KeySet keys1;
+    keys1.policy = KeySet::SecurityPolicy::kStandard;
+    keys1.num_keys_used = 2;
+    KeySet keys2;
+    keys2.policy = KeySet::SecurityPolicy::kStandard;
+    keys2.num_keys_used = 3;
+    #endif
+
     chip::FabricIndex kFabricIndex = 1;
     CHIP_ERROR err                 = CHIP_NO_ERROR;
 
@@ -682,10 +720,24 @@ void TestPerFabricData(nlTestSuite * apSuite, void * apContext)
 
     // Keys
 
+    #if 0
     KeySet keys0a   = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 3 };
     KeySet keys1a   = { .policy = KeySet::SecurityPolicy::kLowLatency, .num_keys_used = 3 };
     KeySet keys_out = { .policy = KeySet::SecurityPolicy::kStandard, .num_keys_used = 0 };
+    #endif
 
+    #if 1
+    // Modified by Sword
+    KeySet keys0a;
+    keys0a.policy = KeySet::SecurityPolicy::kStandard;
+    keys0a.num_keys_used = 3;
+    KeySet keys1a;
+    keys1a.policy = KeySet::SecurityPolicy::kLowLatency;
+    keys1a.num_keys_used = 3;
+    KeySet keys_out;
+    keys_out.policy = KeySet::SecurityPolicy::kStandard;
+    keys_out.num_keys_used = 0;
+    #endif
     NL_TEST_ASSERT(apSuite, groups);
 
     memcpy(keys0a.epoch_keys, epoch_keys1, sizeof(epoch_keys1));

@@ -1999,6 +1999,7 @@ const nlTest sTests[] =
 
 int TestSystemPacketBuffer(void)
 {
+    #if 0
     // clang-format off
     nlTestSuite theSuite = {
         .name ="chip-system-packetbuffer",
@@ -2009,7 +2010,20 @@ int TestSystemPacketBuffer(void)
         .terminate = PacketBufferTest::TestTerminate
     };
     // clang-format on
+    #endif
 
+    #if 1
+    // Modified by Sword
+    // clang-format off
+    nlTestSuite theSuite;
+    theSuite.name ="chip-system-packetbuffer";
+    theSuite.tests = &sTests[0];
+    theSuite.setup = PacketBufferTest::TestSetup;
+    theSuite.tear_down = PacketBufferTest::TestTeardown;
+    // theSuite.initialize = PacketBufferTest::TestInitialize;
+    theSuite.terminate = PacketBufferTest::TestTerminate;
+    #endif
+    
     // Run test suit againt one context.
     nlTestRunner(&theSuite, &sContext);
 

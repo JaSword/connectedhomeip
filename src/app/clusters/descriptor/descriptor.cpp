@@ -141,11 +141,13 @@ CHIP_ERROR DescriptorAttrAccess::Read(const ConcreteAttributePath & aPath, Attri
 
 void MatterDescriptorPluginServerInitCallback(void)
 {
+    ChipLogDetail(Zcl,"Sword Debugging 1: MatterDescriptorPluginServerInitCallback");
 #if CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
     static bool attrAccessRegistered = false;
 
     if (!attrAccessRegistered)
     {
+        ChipLogDetail(Zcl,"Sword Debugging 2: MatterDescriptorPluginServerInitCallback");
         registerAttributeAccessOverride(&gAttrAccess);
         attrAccessRegistered = true;
     }
