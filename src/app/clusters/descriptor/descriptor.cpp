@@ -141,8 +141,10 @@ CHIP_ERROR DescriptorAttrAccess::Read(const ConcreteAttributePath & aPath, Attri
 
 void MatterDescriptorPluginServerInitCallback(void)
 {
-    ChipLogDetail(Zcl,"Sword Debugging 1: MatterDescriptorPluginServerInitCallback");
+    // ChipLogDetail(Zcl,"Sword Debugging 1: MatterDescriptorPluginServerInitCallback");
+    emberAfPrintln(EMBER_AF_PRINT_DEBUG, "Sword Debugging: MatterDescriptorPluginServerInitCallback");
 #if CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
+    #if 0
     static bool attrAccessRegistered = false;
 
     if (!attrAccessRegistered)
@@ -151,5 +153,7 @@ void MatterDescriptorPluginServerInitCallback(void)
         registerAttributeAccessOverride(&gAttrAccess);
         attrAccessRegistered = true;
     }
+    #endif
+    registerAttributeAccessOverride(&gAttrAccess);
 #endif
 }

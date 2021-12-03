@@ -447,6 +447,7 @@ static EmberAfStatus typeSensitiveMemCopy(ClusterId clusterId, uint8_t * dest, u
     bool ignoreReadLength = write || (readLength == 0);
     uint16_t bufferSize   = ignoreReadLength ? am->size : readLength;
 
+    if (/*ZCL_DESCRIPTOR_CLUSTER_ID*/0x001D == clusterId) ChipLogDetail(Zcl, "Sword Debugging AttributeType=0x%02x, IsWrite=%d, Index=%d",attributeType, write, index);
     if (emberAfIsStringAttributeType(attributeType))
     {
         if (bufferSize < 1)
@@ -474,6 +475,7 @@ static EmberAfStatus typeSensitiveMemCopy(ClusterId clusterId, uint8_t * dest, u
     }
     else
     {
+        if (/*ZCL_DESCRIPTOR_CLUSTER_ID*/0x001D == clusterId) ChipLogDetail(Zcl, "Sword Debugging AttributeType Not Found");
         if (!ignoreReadLength && readLength < am->size)
         {
             return EMBER_ZCL_STATUS_INSUFFICIENT_SPACE;
@@ -603,13 +605,13 @@ EmberAfStatus emAfReadOrWriteAttribute(EmberAfAttributeSearchRecord * attRecord,
                 if (emAfMatchCluster(cluster, attRecord))
                 { // Got the cluster
                     uint16_t attrIndex;
-                    ChipLogDetail(Zcl, "Sword Debugging Cluster=" ChipLogFormatMEI, ChipLogValueMEI(attRecord->clusterId));
+                    // ChipLogDetail(Zcl, "Sword Debugging Cluster=" ChipLogFormatMEI, ChipLogValueMEI(attRecord->clusterId));
                     for (attrIndex = 0; attrIndex < cluster->attributeCount; attrIndex++)
                     {
                         EmberAfAttributeMetadata * am = &(cluster->attributes[attrIndex]);
                         if (emAfMatchAttribute(cluster, am, attRecord))
                         { // Got the attribute
-                             ChipLogDetail(Zcl, "Sword Debugging AttributeId=" ChipLogFormatMEI, ChipLogValueMEI(attRecord->attributeId));
+                            if (/*ZCL_DESCRIPTOR_CLUSTER_ID*/0x001D == attRecord->clusterId) ChipLogDetail(Zcl, "Sword Debugging AttributeOffsetIndex=%d AttributeId=" ChipLogFormatMEI, attributeOffsetIndex, ChipLogValueMEI(attRecord->attributeId));
                             // If passed metadata location is not null, populate
                             if (metadata != NULL)
                             {
