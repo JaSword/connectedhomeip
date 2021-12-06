@@ -47,14 +47,14 @@
 #include "chip/interaction_model/Delegate.h"
 
 #include <app/CommandSender.h>
+#include <app/DeviceProxy.h>
 #include <app/InteractionModelEngine.h>
 #include <app/server/Dnssd.h>
-#include <controller/CHIPDevice.h>
 #include <controller/CHIPDeviceController.h>
 #include <controller/CHIPDeviceControllerFactory.h>
 #include <controller/ExampleOperationalCredentialsIssuer.h>
 #include <credentials/DeviceAttestationVerifier.h>
-#include <credentials/examples/DeviceAttestationVerifierExample.h>
+#include <credentials/examples/DefaultDeviceAttestationVerifier.h>
 #include <inet/IPAddress.h>
 #include <lib/dnssd/Resolver.h>
 #include <lib/support/BytesToHex.h>
@@ -77,7 +77,7 @@ static_assert(std::is_same<uint32_t, ChipError::StorageType>::value, "python ass
 extern "C" {
 typedef void (*ConstructBytesArrayFunct)(const uint8_t * dataBuf, uint32_t dataLen);
 typedef void (*LogMessageFunct)(uint64_t time, uint64_t timeUS, const char * moduleName, uint8_t category, const char * msg);
-typedef void (*DeviceAvailableFunc)(Device * device, ChipError::StorageType err);
+typedef void (*DeviceAvailableFunc)(DeviceProxy * device, ChipError::StorageType err);
 typedef void (*ChipThreadTaskRunnerFunct)(intptr_t context);
 }
 
@@ -86,6 +86,7 @@ chip::Controller::PythonPersistentStorageDelegate sStorageDelegate;
 chip::Controller::ScriptDevicePairingDelegate sPairingDelegate;
 chip::Controller::ScriptDeviceAddressUpdateDelegate sDeviceAddressUpdateDelegate;
 chip::Controller::ExampleOperationalCredentialsIssuer sOperationalCredentialsIssuer;
+chip::SimpleFabricStorage sFabricStorage;
 } // namespace
 
 // NOTE: Remote device ID is in sync with the echo server device id
@@ -111,6 +112,10 @@ ChipError::StorageType pychip_DeviceController_ConnectBLE(chip::Controller::Devi
 ChipError::StorageType pychip_DeviceController_ConnectIP(chip::Controller::DeviceCommissioner * devCtrl, const char * peerAddrStr,
                                                          uint32_t setupPINCode, chip::NodeId nodeid);
 ChipError::StorageType pychip_DeviceController_CloseSession(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeid);
+ChipError::StorageType pychip_DeviceController_EstablishPASESessionIP(chip::Controller::DeviceCommissioner * devCtrl,
+                                                                      const char * peerAddrStr, uint32_t setupPINCode,
+                                                                      chip::NodeId nodeid);
+ChipError::StorageType pychip_DeviceController_Commission(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeid);
 
 ChipError::StorageType
 pychip_DeviceController_DiscoverCommissionableNodesLongDiscriminator(chip::Controller::DeviceCommissioner * devCtrl,
@@ -162,7 +167,9 @@ void pychip_Stack_SetLogFunct(LogMessageFunct logFunct);
 
 ChipError::StorageType pychip_GetConnectedDeviceByNodeId(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeId,
                                                          DeviceAvailableFunc callback);
-uint64_t pychip_GetCommandSenderHandle(chip::Controller::Device * device);
+ChipError::StorageType pychip_GetDeviceBeingCommissioned(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeId,
+                                                         CommissioneeDeviceProxy ** proxy);
+uint64_t pychip_GetCommandSenderHandle(chip::DeviceProxy * device);
 // CHIP Stack objects
 ChipError::StorageType pychip_BLEMgrImpl_ConfigureBle(uint32_t bluetoothAdapterId);
 
@@ -181,9 +188,14 @@ ChipError::StorageType pychip_DeviceController_NewDeviceController(chip::Control
     }
 
     // Initialize device attestation verifier
-    SetDeviceAttestationVerifier(Examples::GetExampleDACVerifier());
+    // TODO: Replace testingRootStore with a AttestationTrustStore that has the necessary official PAA roots available
+    const chip::Credentials::AttestationTrustStore * testingRootStore = chip::Credentials::GetTestAttestationTrustStore();
+    SetDeviceAttestationVerifier(GetDefaultDACVerifier(testingRootStore));
 
     CHIP_ERROR err = sOperationalCredentialsIssuer.Initialize(sStorageDelegate);
+    VerifyOrReturnError(err == CHIP_NO_ERROR, err.AsInteger());
+
+    err = sFabricStorage.Initialize(&sStorageDelegate);
     VerifyOrReturnError(err == CHIP_NO_ERROR, err.AsInteger());
 
     chip::Crypto::P256Keypair ephemeralKey;
@@ -207,10 +219,11 @@ ChipError::StorageType pychip_DeviceController_NewDeviceController(chip::Control
     VerifyOrReturnError(err == CHIP_NO_ERROR, err.AsInteger());
 
     FactoryInitParams factoryParams;
-    factoryParams.storageDelegate = &sStorageDelegate;
-    factoryParams.imDelegate      = &PythonInteractionModelDelegate::Instance();
+    factoryParams.fabricStorage = &sFabricStorage;
+    factoryParams.imDelegate    = &PythonInteractionModelDelegate::Instance();
 
     SetupParams initParams;
+    initParams.storageDelegate                = &sStorageDelegate;
     initParams.deviceAddressUpdateDelegate    = &sDeviceAddressUpdateDelegate;
     initParams.pairingDelegate                = &sPairingDelegate;
     initParams.operationalCredentialsDelegate = &sOperationalCredentialsIssuer;
@@ -321,11 +334,11 @@ ChipError::StorageType pychip_DeviceController_ConnectIP(chip::Controller::Devic
     return devCtrl->PairDevice(nodeid, params).AsInteger();
 }
 
-void CloseSessionCallback(Device * device, ChipError::StorageType err)
+void CloseSessionCallback(DeviceProxy * device, ChipError::StorageType err)
 {
     if (device != nullptr)
     {
-        device->CloseSession();
+        device->Disconnect();
     }
     if (!ChipError::IsSuccess(err))
     {
@@ -336,6 +349,23 @@ void CloseSessionCallback(Device * device, ChipError::StorageType err)
 ChipError::StorageType pychip_DeviceController_CloseSession(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeid)
 {
     return pychip_GetConnectedDeviceByNodeId(devCtrl, nodeid, CloseSessionCallback);
+}
+ChipError::StorageType pychip_DeviceController_EstablishPASESessionIP(chip::Controller::DeviceCommissioner * devCtrl,
+                                                                      const char * peerAddrStr, uint32_t setupPINCode,
+                                                                      chip::NodeId nodeid)
+{
+    chip::Inet::IPAddress peerAddr;
+    chip::Transport::PeerAddress addr;
+    RendezvousParameters params = chip::RendezvousParameters().SetSetupPINCode(setupPINCode);
+    VerifyOrReturnError(chip::Inet::IPAddress::FromString(peerAddrStr, peerAddr), CHIP_ERROR_INVALID_ARGUMENT.AsInteger());
+    addr.SetTransportType(chip::Transport::Type::kUdp).SetIPAddress(peerAddr);
+    params.SetPeerAddress(addr).SetDiscriminator(0);
+    return devCtrl->EstablishPASEConnection(nodeid, params).AsInteger();
+}
+ChipError::StorageType pychip_DeviceController_Commission(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeid)
+{
+    CommissioningParameters params;
+    return devCtrl->Commission(nodeid, params).AsInteger();
 }
 
 ChipError::StorageType pychip_DeviceController_DiscoverAllCommissionableNodes(chip::Controller::DeviceCommissioner * devCtrl)
@@ -385,7 +415,8 @@ ChipError::StorageType pychip_DeviceController_OpenCommissioningWindow(chip::Con
                                                                        chip::NodeId nodeid, uint16_t timeout, uint16_t iteration,
                                                                        uint16_t discriminator, uint8_t option)
 {
-    return devCtrl->OpenCommissioningWindow(nodeid, timeout, iteration, discriminator, option).AsInteger();
+    SetupPayload payload;
+    return devCtrl->OpenCommissioningWindow(nodeid, timeout, iteration, discriminator, option, payload).AsInteger();
 }
 
 void pychip_DeviceController_PrintDiscoveredDevices(chip::Controller::DeviceCommissioner * devCtrl)
@@ -401,6 +432,7 @@ void pychip_DeviceController_PrintDiscoveredDevices(chip::Controller::DeviceComm
         Encoding::BytesToUppercaseHexString(dnsSdInfo->rotatingId, dnsSdInfo->rotatingIdLen, rotatingId, sizeof(rotatingId));
 
         ChipLogProgress(Discovery, "Commissionable Node %d", i);
+        ChipLogProgress(Discovery, "\tInstance name:\t\t%s", dnsSdInfo->instanceName);
         ChipLogProgress(Discovery, "\tHost name:\t\t%s", dnsSdInfo->hostName);
         ChipLogProgress(Discovery, "\tPort:\t\t\t%u", dnsSdInfo->port);
         ChipLogProgress(Discovery, "\tLong discriminator:\t%u", dnsSdInfo->longDiscriminator);
@@ -411,10 +443,10 @@ void pychip_DeviceController_PrintDiscoveredDevices(chip::Controller::DeviceComm
         ChipLogProgress(Discovery, "\tDevice Name\t\t%s", dnsSdInfo->deviceName);
         ChipLogProgress(Discovery, "\tRotating Id\t\t%s", rotatingId);
         ChipLogProgress(Discovery, "\tPairing Instruction\t%s", dnsSdInfo->pairingInstruction);
-        ChipLogProgress(Discovery, "\tPairing Hint\t\t0x%x", dnsSdInfo->pairingHint);
+        ChipLogProgress(Discovery, "\tPairing Hint\t\t%u", dnsSdInfo->pairingHint);
         if (dnsSdInfo->GetMrpRetryIntervalIdle().HasValue())
         {
-            ChipLogProgress(Discovery, "\tMrp Interval idle\t%u", dnsSdInfo->GetMrpRetryIntervalIdle().Value());
+            ChipLogProgress(Discovery, "\tMrp Interval idle\t%u", dnsSdInfo->GetMrpRetryIntervalIdle().Value().count());
         }
         else
         {
@@ -422,7 +454,7 @@ void pychip_DeviceController_PrintDiscoveredDevices(chip::Controller::DeviceComm
         }
         if (dnsSdInfo->GetMrpRetryIntervalActive().HasValue())
         {
-            ChipLogProgress(Discovery, "\tMrp Interval active\t%u", dnsSdInfo->GetMrpRetryIntervalActive().Value());
+            ChipLogProgress(Discovery, "\tMrp Interval active\t%u", dnsSdInfo->GetMrpRetryIntervalActive().Value().count());
         }
         else
         {
@@ -525,7 +557,7 @@ struct GetDeviceCallbacks
         mOnSuccess(OnDeviceConnectedFn, this), mOnFailure(OnConnectionFailureFn, this), mCallback(callback)
     {}
 
-    static void OnDeviceConnectedFn(void * context, Device * device)
+    static void OnDeviceConnectedFn(void * context, OperationalDeviceProxy * device)
     {
         auto * self = static_cast<GetDeviceCallbacks *>(context);
         self->mCallback(device, CHIP_NO_ERROR.AsInteger());
@@ -553,6 +585,12 @@ ChipError::StorageType pychip_GetConnectedDeviceByNodeId(chip::Controller::Devic
     return devCtrl->GetConnectedDevice(nodeId, &callbacks->mOnSuccess, &callbacks->mOnFailure).AsInteger();
 }
 
+ChipError::StorageType pychip_GetDeviceBeingCommissioned(chip::Controller::DeviceCommissioner * devCtrl, chip::NodeId nodeId,
+                                                         CommissioneeDeviceProxy ** proxy)
+{
+    return devCtrl->GetDeviceBeingCommissioned(nodeId, proxy).AsInteger();
+}
+
 ChipError::StorageType pychip_DeviceCommissioner_CloseBleConnection(chip::Controller::DeviceCommissioner * devCtrl)
 {
 #if CONFIG_NETWORK_LAYER_BLE
@@ -562,7 +600,7 @@ ChipError::StorageType pychip_DeviceCommissioner_CloseBleConnection(chip::Contro
 #endif
 }
 
-uint64_t pychip_GetCommandSenderHandle(chip::Controller::Device * device)
+uint64_t pychip_GetCommandSenderHandle(chip::DeviceProxy * device)
 {
     return 0;
 }

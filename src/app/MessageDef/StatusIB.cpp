@@ -36,15 +36,6 @@ using namespace chip::TLV;
 
 namespace chip {
 namespace app {
-CHIP_ERROR StatusIB::Parser::Init(const TLV::TLVReader & aReader)
-{
-    // make a copy of the reader here
-    mReader.Init(aReader);
-    VerifyOrReturnError(TLV::kTLVType_Structure == mReader.GetType(), CHIP_ERROR_WRONG_TLV_TYPE);
-    ReturnErrorOnFailure(mReader.EnterContainer(mOuterContainerType));
-    return CHIP_NO_ERROR;
-}
-
 CHIP_ERROR StatusIB::Parser::DecodeStatusIB(StatusIB & aStatusIB) const
 {
     TLV::TLVReader reader;
@@ -134,18 +125,6 @@ CHIP_ERROR StatusIB::Parser::CheckSchemaValidity() const
     return CHIP_NO_ERROR;
 }
 #endif // CHIP_CONFIG_IM_ENABLE_SCHEMA_CHECK
-
-CHIP_ERROR StatusIB::Builder::Init(TLV::TLVWriter * const apWriter)
-{
-    return InitAnonymousStructure(apWriter);
-}
-
-CHIP_ERROR StatusIB::Builder::Init(TLV::TLVWriter * const apWriter, const uint8_t aContextTagToUse)
-{
-    mpWriter = apWriter;
-    mError   = mpWriter->StartContainer(TLV::ContextTag(aContextTagToUse), TLV::kTLVType_Structure, mOuterContainerType);
-    return mError;
-}
 
 StatusIB::Builder & StatusIB::Builder::EncodeStatusIB(const StatusIB & aStatusIB)
 {

@@ -20,18 +20,12 @@
  * @brief Implementation for the Test Server Cluster
  ***************************************************************************/
 
-#include <app-common/zap-generated/af-structs.h>
-#include <app-common/zap-generated/attribute-id.h>
-#include <app-common/zap-generated/attribute-type.h>
-#include <app-common/zap-generated/cluster-id.h>
 #include <app-common/zap-generated/cluster-objects.h>
-#include <app-common/zap-generated/command-id.h>
 #include <app-common/zap-generated/ids/Attributes.h>
 #include <app-common/zap-generated/ids/Commands.h>
 #include <app/AttributeAccessInterface.h>
 #include <app/CommandHandler.h>
 #include <app/ConcreteCommandPath.h>
-#include <app/util/af.h>
 #include <app/util/attribute-storage.h>
 #include <lib/core/CHIPSafeCasts.h>
 #include <lib/core/CHIPTLV.h>
@@ -46,11 +40,25 @@ using namespace chip::app::Clusters::TestCluster;
 using namespace chip::app::Clusters::TestCluster::Commands;
 using namespace chip::app::Clusters::TestCluster::Attributes;
 
-#if !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-constexpr const char * kErrorStr = "Test Cluster: List Octet cluster (0x%02x) Error setting '%s' attribute: 0x%02x";
-#endif // CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
+// The number of elements in the test attribute list
+constexpr uint8_t kAttributeListLength = 4;
+
+// The maximum length of the test attribute list element in bytes
+constexpr uint8_t kAttributeEntryLength = 6;
 
 namespace {
+
+class OctetStringData
+{
+public:
+    uint8_t * Data() { return mDataBuf; }
+    size_t Length() const { return mDataLen; }
+    void SetLength(size_t size) { mDataLen = size; }
+
+private:
+    uint8_t mDataBuf[kAttributeEntryLength];
+    size_t mDataLen = 0;
+};
 
 class TestAttrAccess : public AttributeAccessInterface
 {
@@ -58,17 +66,35 @@ public:
     // Register for the Test Cluster cluster on all endpoints.
     TestAttrAccess() : AttributeAccessInterface(Optional<EndpointId>::Missing(), TestCluster::Id) {}
 
-    CHIP_ERROR Read(const ConcreteAttributePath & aPath, AttributeValueEncoder & aEncoder) override;
+    CHIP_ERROR Read(const ConcreteReadAttributePath & aPath, AttributeValueEncoder & aEncoder) override;
+    CHIP_ERROR Write(const ConcreteDataAttributePath & aPath, AttributeValueDecoder & aDecoder) override;
 
 private:
     CHIP_ERROR ReadListInt8uAttribute(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteListInt8uAttribute(AttributeValueDecoder & aDecoder);
     CHIP_ERROR ReadListOctetStringAttribute(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteListOctetStringAttribute(AttributeValueDecoder & aDecoder);
     CHIP_ERROR ReadListStructOctetStringAttribute(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteListStructOctetStringAttribute(AttributeValueDecoder & aDecoder);
+    CHIP_ERROR ReadListNullablesAndOptionalsStructAttribute(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteListNullablesAndOptionalsStructAttribute(AttributeValueDecoder & aDecoder);
+    CHIP_ERROR ReadStructAttribute(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteStructAttribute(AttributeValueDecoder & aDecoder);
+    CHIP_ERROR ReadNullableStruct(AttributeValueEncoder & aEncoder);
+    CHIP_ERROR WriteNullableStruct(AttributeValueDecoder & aDecoder);
 };
 
 TestAttrAccess gAttrAccess;
+uint8_t gListUint8Data[kAttributeListLength];
+OctetStringData gListOctetStringData[kAttributeListLength];
+OctetStringData gListOperationalCert[kAttributeListLength];
+Structs::TestListStructOctet::Type listStructOctetStringData[kAttributeListLength];
+Structs::SimpleStruct::Type gStructAttributeValue = { 0,          false,      SimpleEnum::kValueA,
+                                                      ByteSpan(), CharSpan(), BitFlags<SimpleBitmap>(),
+                                                      0,          0 };
+NullableStruct::TypeInfo::Type gNullableStructAttributeValue;
 
-CHIP_ERROR TestAttrAccess::Read(const ConcreteAttributePath & aPath, AttributeValueEncoder & aEncoder)
+CHIP_ERROR TestAttrAccess::Read(const ConcreteReadAttributePath & aPath, AttributeValueEncoder & aEncoder)
 {
     switch (aPath.mAttributeId)
     {
@@ -81,6 +107,15 @@ CHIP_ERROR TestAttrAccess::Read(const ConcreteAttributePath & aPath, AttributeVa
     case ListStructOctetString::Id: {
         return ReadListStructOctetStringAttribute(aEncoder);
     }
+    case ListNullablesAndOptionalsStruct::Id: {
+        return ReadListNullablesAndOptionalsStructAttribute(aEncoder);
+    }
+    case Struct::Id: {
+        return ReadStructAttribute(aEncoder);
+    }
+    case NullableStruct::Id: {
+        return ReadNullableStruct(aEncoder);
+    }
     default: {
         break;
     }
@@ -89,144 +124,183 @@ CHIP_ERROR TestAttrAccess::Read(const ConcreteAttributePath & aPath, AttributeVa
     return CHIP_NO_ERROR;
 }
 
-#if !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-EmberAfStatus writeAttribute(EndpointId endpoint, AttributeId attributeId, uint8_t * buffer, int32_t index = -1)
+CHIP_ERROR TestAttrAccess::Write(const ConcreteDataAttributePath & aPath, AttributeValueDecoder & aDecoder)
 {
-    EmberAfAttributeSearchRecord record;
-    record.endpoint         = endpoint;
-    record.clusterId        = ZCL_TEST_CLUSTER_ID;
-    record.clusterMask      = CLUSTER_MASK_SERVER;
-    record.manufacturerCode = EMBER_AF_NULL_MANUFACTURER_CODE;
-    record.attributeId      = attributeId;
-
-    // When reading or writing a List attribute the 'index' value could have 3 types of values:
-    //  -1: Read/Write the whole list content, including the number of elements in the list
-    //   0: Read/Write the number of elements in the list, represented as a uint16_t
-    //   n: Read/Write the nth element of the list
-    //
-    // Since the first 2 bytes of the attribute are used to store the number of elements, elements indexing starts
-    // at 1. In order to hide this to the rest of the code of this file, the element index is incremented by 1 here.
-    // This also allows calling writeAttribute() with no index arg to mean "write the length".
-    return emAfReadOrWriteAttribute(&record, NULL, buffer, 0, true, index + 1);
-}
-
-EmberAfStatus writeTestListInt8uAttribute(EndpointId endpoint)
-{
-    EmberAfStatus status    = EMBER_ZCL_STATUS_SUCCESS;
-    AttributeId attributeId = ZCL_LIST_ATTRIBUTE_ID;
-
-    uint16_t attributeCount = 4;
-    for (uint8_t index = 0; index < attributeCount; index++)
+    switch (aPath.mAttributeId)
     {
-        status = writeAttribute(endpoint, attributeId, (uint8_t *) &index, index);
-        VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
+    case ListInt8u::Id: {
+        return WriteListInt8uAttribute(aDecoder);
+    }
+    case ListOctetString::Id: {
+        return WriteListOctetStringAttribute(aDecoder);
+    }
+    case ListStructOctetString::Id: {
+        return WriteListStructOctetStringAttribute(aDecoder);
+    }
+    case ListNullablesAndOptionalsStruct::Id: {
+        return WriteListNullablesAndOptionalsStructAttribute(aDecoder);
+    }
+    case Struct::Id: {
+        return WriteStructAttribute(aDecoder);
+    }
+    case NullableStruct::Id: {
+        return WriteNullableStruct(aDecoder);
+    }
+    default: {
+        break;
+    }
     }
 
-    status = writeAttribute(endpoint, attributeId, (uint8_t *) &attributeCount);
-    VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
-    return status;
+    return CHIP_NO_ERROR;
 }
-#endif // !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
+
+CHIP_ERROR TestAttrAccess::ReadNullableStruct(AttributeValueEncoder & aEncoder)
+{
+    return aEncoder.Encode(gNullableStructAttributeValue);
+}
+
+CHIP_ERROR TestAttrAccess::WriteNullableStruct(AttributeValueDecoder & aDecoder)
+{
+    return aDecoder.Decode(gNullableStructAttributeValue);
+}
 
 CHIP_ERROR TestAttrAccess::ReadListInt8uAttribute(AttributeValueEncoder & aEncoder)
 {
     return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
-        constexpr uint16_t attributeCount = 4;
-        for (uint8_t index = 0; index < attributeCount; index++)
+        for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
-            ReturnErrorOnFailure(encoder.Encode(index));
+            ReturnErrorOnFailure(encoder.Encode(gListUint8Data[index]));
         }
         return CHIP_NO_ERROR;
     });
 }
 
-#if !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-EmberAfStatus writeTestListOctetAttribute(EndpointId endpoint)
+CHIP_ERROR TestAttrAccess::WriteListInt8uAttribute(AttributeValueDecoder & aDecoder)
 {
-    EmberAfStatus status    = EMBER_ZCL_STATUS_SUCCESS;
-    AttributeId attributeId = ZCL_LIST_OCTET_STRING_ATTRIBUTE_ID;
+    ListInt8u::TypeInfo::DecodableType list;
 
-    uint16_t attributeCount = 4;
-    char data[6]            = { 'T', 'e', 's', 't', 'N', '\0' };
-    ByteSpan span           = ByteSpan(Uint8::from_char(data), strlen(data));
+    ReturnErrorOnFailure(aDecoder.Decode(list));
 
-    for (uint8_t index = 0; index < attributeCount; index++)
+    uint8_t index = 0;
+    auto iter     = list.begin();
+    while (iter.Next())
     {
-        sprintf(data + strlen(data) - 1, "%d", index);
+        auto & entry = iter.GetValue();
 
-        status = writeAttribute(endpoint, attributeId, (uint8_t *) &span, index);
-        VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
+        VerifyOrReturnError(index < kAttributeListLength, CHIP_ERROR_BUFFER_TOO_SMALL);
+        gListUint8Data[index++] = entry;
     }
 
-    status = writeAttribute(endpoint, attributeId, (uint8_t *) &attributeCount);
-    VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
-    return status;
+    return iter.GetStatus();
 }
-#endif // !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
 
 CHIP_ERROR TestAttrAccess::ReadListOctetStringAttribute(AttributeValueEncoder & aEncoder)
 {
     return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
-        constexpr uint16_t attributeCount = 4;
-        char data[6]                      = { 'T', 'e', 's', 't', 'N', '\0' };
-
-        for (uint8_t index = 0; index < attributeCount; index++)
+        for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
-            snprintf(data + strlen(data) - 1, 2, "%d", index);
-            ByteSpan span(Uint8::from_char(data), strlen(data));
+            ByteSpan span(gListOctetStringData[index].Data(), gListOctetStringData[index].Length());
             ReturnErrorOnFailure(encoder.Encode(span));
         }
         return CHIP_NO_ERROR;
     });
 }
 
-#if !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-EmberAfStatus writeTestListStructOctetAttribute(EndpointId endpoint)
+CHIP_ERROR TestAttrAccess::WriteListOctetStringAttribute(AttributeValueDecoder & aDecoder)
 {
-    EmberAfStatus status    = EMBER_ZCL_STATUS_SUCCESS;
-    AttributeId attributeId = ZCL_LIST_STRUCT_OCTET_STRING_ATTRIBUTE_ID;
+    ListOctetString::TypeInfo::DecodableType list;
 
-    uint16_t attributeCount = 4;
-    char data[6]            = { 'T', 'e', 's', 't', 'N', '\0' };
-    ByteSpan span           = ByteSpan(Uint8::from_char(data), strlen(data));
+    ReturnErrorOnFailure(aDecoder.Decode(list));
 
-    for (uint8_t index = 0; index < attributeCount; index++)
+    uint8_t index = 0;
+    auto iter     = list.begin();
+    while (iter.Next())
     {
-        sprintf(data + strlen(data) - 1, "%d", index);
+        const auto & entry = iter.GetValue();
 
-        _TestListStructOctet structOctet;
-        structOctet.fabricIndex     = index;
-        structOctet.operationalCert = span;
-
-        status = writeAttribute(endpoint, attributeId, (uint8_t *) &structOctet, index);
-        VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
+        VerifyOrReturnError(index < kAttributeListLength, CHIP_ERROR_BUFFER_TOO_SMALL);
+        VerifyOrReturnError(entry.size() <= kAttributeEntryLength, CHIP_ERROR_BUFFER_TOO_SMALL);
+        memcpy(gListOctetStringData[index].Data(), entry.data(), entry.size());
+        gListOctetStringData[index].SetLength(entry.size());
+        index++;
     }
 
-    status = writeAttribute(endpoint, attributeId, (uint8_t *) &attributeCount);
-    VerifyOrReturnError(status == EMBER_ZCL_STATUS_SUCCESS, status);
-    return status;
+    return iter.GetStatus();
 }
-#endif // !CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
 
 CHIP_ERROR TestAttrAccess::ReadListStructOctetStringAttribute(AttributeValueEncoder & aEncoder)
 {
     return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
-        constexpr uint16_t attributeCount = 4;
-        char data[6]                      = { 'T', 'e', 's', 't', 'N', '\0' };
-
-        for (uint8_t index = 0; index < attributeCount; index++)
+        for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
-            snprintf(data + strlen(data) - 1, 2, "%d", index);
-            ByteSpan span(Uint8::from_char(data), strlen(data));
-
             Structs::TestListStructOctet::Type structOctet;
-            structOctet.fabricIndex     = index;
-            structOctet.operationalCert = span;
+            structOctet.fabricIndex     = listStructOctetStringData[index].fabricIndex;
+            structOctet.operationalCert = listStructOctetStringData[index].operationalCert;
             ReturnErrorOnFailure(encoder.Encode(structOctet));
         }
+
         return CHIP_NO_ERROR;
     });
 }
+
+CHIP_ERROR TestAttrAccess::WriteListStructOctetStringAttribute(AttributeValueDecoder & aDecoder)
+{
+    ListStructOctetString::TypeInfo::DecodableType list;
+
+    ReturnErrorOnFailure(aDecoder.Decode(list));
+
+    uint8_t index = 0;
+    auto iter     = list.begin();
+    while (iter.Next())
+    {
+        const auto & entry = iter.GetValue();
+
+        VerifyOrReturnError(index < kAttributeListLength, CHIP_ERROR_BUFFER_TOO_SMALL);
+        VerifyOrReturnError(entry.operationalCert.size() <= kAttributeEntryLength, CHIP_ERROR_BUFFER_TOO_SMALL);
+        memcpy(gListOperationalCert[index].Data(), entry.operationalCert.data(), entry.operationalCert.size());
+        gListOperationalCert[index].SetLength(entry.operationalCert.size());
+
+        listStructOctetStringData[index].fabricIndex = entry.fabricIndex;
+        listStructOctetStringData[index].operationalCert =
+            ByteSpan(gListOperationalCert[index].Data(), gListOperationalCert[index].Length());
+        index++;
+    }
+
+    if (iter.GetStatus() != CHIP_NO_ERROR)
+    {
+        return CHIP_ERROR_INVALID_DATA_LIST;
+    }
+
+    return CHIP_NO_ERROR;
+}
+
+CHIP_ERROR TestAttrAccess::ReadListNullablesAndOptionalsStructAttribute(AttributeValueEncoder & aEncoder)
+{
+    return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+        // Just encode a single default-initialized
+        // entry for now.
+        Structs::NullablesAndOptionalsStruct::Type entry;
+        ReturnErrorOnFailure(encoder.Encode(entry));
+        return CHIP_NO_ERROR;
+    });
+}
+
+CHIP_ERROR TestAttrAccess::WriteListNullablesAndOptionalsStructAttribute(AttributeValueDecoder & aDecoder)
+{
+    // TODO Add yaml test case for NullablesAndOptionalsStruct list
+    return CHIP_NO_ERROR;
+}
+
+CHIP_ERROR TestAttrAccess::ReadStructAttribute(AttributeValueEncoder & aEncoder)
+{
+    return aEncoder.Encode(gStructAttributeValue);
+}
+
+CHIP_ERROR TestAttrAccess::WriteStructAttribute(AttributeValueDecoder & aDecoder)
+{
+    return aDecoder.Decode(gStructAttributeValue);
+}
+
 } // namespace
 
 bool emberAfTestClusterClusterTestCallback(app::CommandHandler *, const app::ConcreteCommandPath & commandPath,
@@ -260,7 +334,7 @@ bool emberAfTestClusterClusterTestAddArgumentsCallback(CommandHandler * apComman
 {
     if (commandData.arg1 > UINT8_MAX - commandData.arg2)
     {
-        return emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_INVALID_ARGUMENT);
+        return emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_INVALID_COMMAND);
     }
 
     TestAddArgumentsResponse::Type responseData;
@@ -273,20 +347,30 @@ bool emberAfTestClusterClusterTestAddArgumentsCallback(CommandHandler * apComman
     return true;
 }
 
+static bool SendBooleanResponse(CommandHandler * commandObj, const ConcreteCommandPath & commandPath, bool value)
+{
+    Commands::BooleanResponse::Type response;
+    response.value = value;
+    CHIP_ERROR err = commandObj->AddResponseData(commandPath, response);
+    if (err != CHIP_NO_ERROR)
+    {
+        commandObj->AddStatus(commandPath, Protocols::InteractionModel::Status::Failure);
+    }
+    return true;
+}
+
 bool emberAfTestClusterClusterTestStructArgumentRequestCallback(
     app::CommandHandler * commandObj, const app::ConcreteCommandPath & commandPath,
     const Commands::TestStructArgumentRequest::DecodableType & commandData)
 {
-    emberAfSendImmediateDefaultResponse(commandData.arg1.b ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, commandData.arg1.b);
 }
 
 bool emberAfTestClusterClusterTestNestedStructArgumentRequestCallback(
     app::CommandHandler * commandObj, const app::ConcreteCommandPath & commandPath,
     const Commands::TestNestedStructArgumentRequest::DecodableType & commandData)
 {
-    emberAfSendImmediateDefaultResponse(commandData.arg1.c.b ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, commandData.arg1.c.b);
 }
 
 bool emberAfTestClusterClusterTestListStructArgumentRequestCallback(
@@ -304,11 +388,11 @@ bool emberAfTestClusterClusterTestListStructArgumentRequestCallback(
 
     if (CHIP_NO_ERROR != structIterator.GetStatus())
     {
-        shouldReturnTrue = false;
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+        return true;
     }
 
-    emberAfSendImmediateDefaultResponse(shouldReturnTrue ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, shouldReturnTrue);
 }
 
 bool emberAfTestClusterClusterTestListInt8UArgumentRequestCallback(
@@ -326,11 +410,11 @@ bool emberAfTestClusterClusterTestListInt8UArgumentRequestCallback(
 
     if (CHIP_NO_ERROR != uint8Iterator.GetStatus())
     {
-        shouldReturnTrue = false;
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+        return true;
     }
 
-    emberAfSendImmediateDefaultResponse(shouldReturnTrue ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, shouldReturnTrue);
 }
 
 bool emberAfTestClusterClusterTestNestedStructListArgumentRequestCallback(
@@ -348,11 +432,11 @@ bool emberAfTestClusterClusterTestNestedStructListArgumentRequestCallback(
 
     if (CHIP_NO_ERROR != structIterator.GetStatus())
     {
-        shouldReturnTrue = false;
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+        return true;
     }
 
-    emberAfSendImmediateDefaultResponse(shouldReturnTrue ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, shouldReturnTrue);
 }
 
 bool emberAfTestClusterClusterTestListNestedStructListArgumentRequestCallback(
@@ -376,33 +460,27 @@ bool emberAfTestClusterClusterTestListNestedStructListArgumentRequestCallback(
 
         if (CHIP_NO_ERROR != subStructIterator.GetStatus())
         {
-            shouldReturnTrue = false;
-            break;
+            emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+            return true;
         }
     }
 
     if (CHIP_NO_ERROR != structIterator.GetStatus())
     {
-        shouldReturnTrue = false;
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+        return true;
     }
 
-    emberAfSendImmediateDefaultResponse(shouldReturnTrue ? EMBER_ZCL_STATUS_SUCCESS : EMBER_ZCL_STATUS_FAILURE);
-    return true;
+    return SendBooleanResponse(commandObj, commandPath, shouldReturnTrue);
 }
 
 bool emberAfTestClusterClusterTestListInt8UReverseRequestCallback(
     CommandHandler * commandObj, ConcreteCommandPath const & commandPath,
     Commands::TestListInt8UReverseRequest::DecodableType const & commandData)
 {
-    size_t count = 0;
-    {
-        auto iter = commandData.arg1.begin();
-        while (iter.Next())
-        {
-            ++count;
-        }
-        VerifyOrExit(iter.GetStatus() == CHIP_NO_ERROR, );
-    }
+    size_t count   = 0;
+    CHIP_ERROR err = commandData.arg1.ComputeSize(&count);
+    VerifyOrExit(err == CHIP_NO_ERROR, );
 
     {
         auto iter = commandData.arg1.begin();
@@ -427,33 +505,89 @@ exit:
     return true;
 }
 
+bool emberAfTestClusterClusterTestEnumsRequestCallback(CommandHandler * commandObj, ConcreteCommandPath const & commandPath,
+                                                       TestEnumsRequest::DecodableType const & commandData)
+{
+    TestEnumsResponse::Type response;
+    response.arg1 = commandData.arg1;
+    response.arg2 = commandData.arg2;
+
+    CHIP_ERROR err = commandObj->AddResponseData(commandPath, response);
+    if (err != CHIP_NO_ERROR)
+    {
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+    }
+    return true;
+}
+
+bool emberAfTestClusterClusterTestNullableOptionalRequestCallback(
+    CommandHandler * commandObj, ConcreteCommandPath const & commandPath,
+    Commands::TestNullableOptionalRequest::DecodableType const & commandData)
+{
+    Commands::TestNullableOptionalResponse::Type response;
+    response.wasPresent = commandData.arg1.HasValue();
+    if (response.wasPresent)
+    {
+        bool wasNull = commandData.arg1.Value().IsNull();
+        response.wasNull.SetValue(wasNull);
+        if (!wasNull)
+        {
+            response.value.SetValue(commandData.arg1.Value().Value());
+        }
+
+        response.originalValue.Emplace(commandData.arg1.Value());
+    }
+
+    CHIP_ERROR err = commandObj->AddResponseData(commandPath, response);
+    if (err != CHIP_NO_ERROR)
+    {
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+    }
+    return true;
+}
+
+bool emberAfTestClusterClusterSimpleStructEchoRequestCallback(CommandHandler * commandObj, const ConcreteCommandPath & commandPath,
+                                                              const Commands::SimpleStructEchoRequest::DecodableType & commandData)
+{
+    Commands::SimpleStructResponse::Type response;
+    response.arg1.a = commandData.arg1.a;
+    response.arg1.b = commandData.arg1.b;
+    response.arg1.c = commandData.arg1.c;
+    response.arg1.d = commandData.arg1.d;
+    response.arg1.e = commandData.arg1.e;
+    response.arg1.f = commandData.arg1.f;
+    response.arg1.g = commandData.arg1.g;
+    response.arg1.h = commandData.arg1.h;
+
+    CHIP_ERROR err = commandObj->AddResponseData(commandPath, response);
+    if (err != CHIP_NO_ERROR)
+    {
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+    }
+    return true;
+}
+
+bool emberAfTestClusterClusterTimedInvokeRequestCallback(CommandHandler * commandObj, const ConcreteCommandPath & commandPath,
+                                                         const Commands::TimedInvokeRequest::DecodableType & commandData)
+{
+    commandObj->AddStatus(commandPath, Protocols::InteractionModel::Status::Success);
+    return true;
+}
+
+bool emberAfTestClusterClusterTestSimpleOptionalArgumentRequestCallback(
+    CommandHandler * commandObj, const ConcreteCommandPath & commandPath,
+    const Commands::TestSimpleOptionalArgumentRequest::DecodableType & commandData)
+{
+    Protocols::InteractionModel::Status status = commandData.arg1.HasValue() ? Protocols::InteractionModel::Status::Success
+                                                                             : Protocols::InteractionModel::Status::InvalidValue;
+    commandObj->AddStatus(commandPath, status);
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 // Plugin initialization
 
 void MatterTestClusterPluginServerInitCallback(void)
 {
-#if CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
     registerAttributeAccessOverride(&gAttrAccess);
-#else  // CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-    EmberAfStatus status = EMBER_ZCL_STATUS_SUCCESS;
-
-    for (uint8_t index = 0; index < emberAfEndpointCount(); index++)
-    {
-        EndpointId endpoint = emberAfEndpointFromIndex(index);
-        if (!emberAfContainsCluster(endpoint, ZCL_TEST_CLUSTER_ID))
-        {
-            continue;
-        }
-
-        status = writeTestListInt8uAttribute(endpoint);
-        VerifyOrReturn(status == EMBER_ZCL_STATUS_SUCCESS, ChipLogError(Zcl, kErrorStr, endpoint, "test list int8u", status));
-
-        status = writeTestListOctetAttribute(endpoint);
-        VerifyOrReturn(status == EMBER_ZCL_STATUS_SUCCESS, ChipLogError(Zcl, kErrorStr, endpoint, "test list octet", status));
-
-        status = writeTestListStructOctetAttribute(endpoint);
-        VerifyOrReturn(status == EMBER_ZCL_STATUS_SUCCESS,
-                       ChipLogError(Zcl, kErrorStr, endpoint, "test list struct octet", status));
-    }
-#endif // CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
 }

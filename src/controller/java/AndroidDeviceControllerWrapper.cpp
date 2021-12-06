@@ -26,7 +26,7 @@
 
 #include <controller/CHIPDeviceControllerFactory.h>
 #include <credentials/DeviceAttestationVerifier.h>
-#include <credentials/examples/DeviceAttestationVerifierExample.h>
+#include <credentials/examples/DefaultDeviceAttestationVerifier.h>
 #include <lib/core/CHIPTLV.h>
 #include <lib/support/PersistentStorageMacros.h>
 #include <lib/support/SafeInt.h>
@@ -204,17 +204,22 @@ AndroidDeviceControllerWrapper * AndroidDeviceControllerWrapper::AllocateNew(Jav
     wrapper->SetJavaObjectRef(vm, deviceControllerObj);
 
     // Initialize device attestation verifier
-    SetDeviceAttestationVerifier(Examples::GetExampleDACVerifier());
+    // TODO: Replace testingRootStore with a AttestationTrustStore that has the necessary official PAA roots available
+    const chip::Credentials::AttestationTrustStore * testingRootStore = chip::Credentials::GetTestAttestationTrustStore();
+    SetDeviceAttestationVerifier(GetDefaultDACVerifier(testingRootStore));
 
     chip::Controller::FactoryInitParams initParams;
     chip::Controller::SetupParams setupParams;
 
-    initParams.storageDelegate = wrapper.get();
-    initParams.systemLayer     = systemLayer;
-    initParams.inetLayer       = inetLayer;
+    initParams.systemLayer   = systemLayer;
+    initParams.inetLayer     = inetLayer;
+    initParams.fabricStorage = wrapper.get();
     // move bleLayer into platform/android to share with app server
-    initParams.bleLayer                        = DeviceLayer::ConnectivityMgr().GetBleLayer();
+#if CONFIG_NETWORK_LAYER_BLE
+    initParams.bleLayer = DeviceLayer::ConnectivityMgr().GetBleLayer();
+#endif
     initParams.listenPort                      = CHIP_PORT + 1;
+    setupParams.storageDelegate                = wrapper.get();
     setupParams.pairingDelegate                = wrapper.get();
     setupParams.operationalCredentialsDelegate = wrapper.get();
 
@@ -324,10 +329,6 @@ CHIP_ERROR AndroidDeviceControllerWrapper::InitializeOperationalCredentialsIssue
     return CHIP_NO_ERROR;
 }
 
-void AndroidDeviceControllerWrapper::OnMessage(chip::System::PacketBufferHandle && msg) {}
-
-void AndroidDeviceControllerWrapper::OnStatusChange(void) {}
-
 CHIP_ERROR AndroidDeviceControllerWrapper::SyncGetKeyValue(const char * key, void * value, uint16_t & size)
 {
     ChipLogProgress(chipTool, "KVS: Getting key %s", key);
@@ -352,3 +353,19 @@ CHIP_ERROR AndroidDeviceControllerWrapper::SyncDeleteKeyValue(const char * key)
     ChipLogProgress(chipTool, "KVS: Deleting key %s", key);
     return chip::DeviceLayer::PersistedStorage::KeyValueStoreMgr().Delete(key);
 }
+
+CHIP_ERROR AndroidDeviceControllerWrapper::SyncStore(chip::FabricIndex fabricIndex, const char * key, const void * buffer,
+                                                     uint16_t size)
+{
+    return SyncSetKeyValue(key, buffer, size);
+};
+
+CHIP_ERROR AndroidDeviceControllerWrapper::SyncLoad(chip::FabricIndex fabricIndex, const char * key, void * buffer, uint16_t & size)
+{
+    return SyncGetKeyValue(key, buffer, size);
+};
+
+CHIP_ERROR AndroidDeviceControllerWrapper::SyncDelete(chip::FabricIndex fabricIndex, const char * key)
+{
+    return SyncDeleteKeyValue(key);
+};

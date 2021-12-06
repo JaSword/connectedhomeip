@@ -46,7 +46,7 @@ CHIP_ERROR UDP::Init(UdpListenParameters & params)
         Close();
     }
 
-    err = params.GetInetLayer()->NewUDPEndPoint(&mUDPEndPoint);
+    err = params.GetEndPointManager()->NewEndPoint(&mUDPEndPoint);
     SuccessOrExit(err);
 
     ChipLogDetail(Inet, "UDP::Init bind&listen port=%d", params.GetListenPort());
@@ -111,10 +111,10 @@ CHIP_ERROR UDP::SendMessage(const Transport::PeerAddress & address, System::Pack
     return mUDPEndPoint->SendMsg(&addrInfo, std::move(msgBuf));
 }
 
-void UDP::OnUdpReceive(Inet::IPEndPointBasis * endPoint, System::PacketBufferHandle && buffer, const Inet::IPPacketInfo * pktInfo)
+void UDP::OnUdpReceive(Inet::UDPEndPoint * endPoint, System::PacketBufferHandle && buffer, const Inet::IPPacketInfo * pktInfo)
 {
     CHIP_ERROR err          = CHIP_NO_ERROR;
-    UDP * udp               = reinterpret_cast<UDP *>(endPoint->AppState);
+    UDP * udp               = reinterpret_cast<UDP *>(endPoint->mAppState);
     PeerAddress peerAddress = PeerAddress::UDP(pktInfo->SrcAddress, pktInfo->SrcPort, pktInfo->Interface);
 
     udp->HandleMessageReceived(peerAddress, std::move(buffer));

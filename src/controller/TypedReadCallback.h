@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <app/BufferedReadCallback.h>
 #include <app/ConcreteAttributePath.h>
 #include <app/InteractionModelDelegate.h>
 #include <app/data-model/Decode.h>
@@ -35,66 +36,122 @@ namespace Controller {
  *  2. Automatic decoding of attribute data provided in the TLVReader by InteractionModelDelegate::OnReportData into a decoded
  *     cluster object.
  */
-template <typename AttributeTypeInfo>
-class TypedReadCallback final : public app::InteractionModelDelegate
+template <typename DecodableAttributeType>
+class TypedReadAttributeCallback final : public app::ReadClient::Callback
 {
 public:
     using OnSuccessCallbackType =
-        std::function<void(const app::ConcreteAttributePath & aPath, const typename AttributeTypeInfo::DecodableType & aData)>;
+        std::function<void(const app::ConcreteAttributePath & aPath, const DecodableAttributeType & aData)>;
     using OnErrorCallbackType = std::function<void(const app::ConcreteAttributePath * aPath,
                                                    Protocols::InteractionModel::Status aIMStatus, CHIP_ERROR aError)>;
-    using OnDoneCallbackType  = std::function<void(app::ReadClient * client, TypedReadCallback * callback)>;
+    using OnDoneCallbackType  = std::function<void(app::ReadClient * client, TypedReadAttributeCallback * callback)>;
 
-    TypedReadCallback(OnSuccessCallbackType aOnSuccess, OnErrorCallbackType aOnError, OnDoneCallbackType aOnDone) :
-        mOnSuccess(aOnSuccess), mOnError(aOnError), mOnDone(aOnDone)
+    TypedReadAttributeCallback(ClusterId aClusterId, AttributeId aAttributeId, OnSuccessCallbackType aOnSuccess,
+                               OnErrorCallbackType aOnError, OnDoneCallbackType aOnDone) :
+        mClusterId(aClusterId),
+        mAttributeId(aAttributeId), mOnSuccess(aOnSuccess), mOnError(aOnError), mOnDone(aOnDone), mBufferedReadAdapter(*this)
     {}
 
-private:
-    void OnReportData(const app::ReadClient * apReadClient, const app::ClusterInfo & aPath, TLV::TLVReader * apData,
-                      Protocols::InteractionModel::Status status) override
-    {
-        CHIP_ERROR err                           = CHIP_NO_ERROR;
-        app::ConcreteAttributePath attributePath = { aPath.mEndpointId, aPath.mClusterId, aPath.mFieldId };
-        typename AttributeTypeInfo::DecodableType value;
+    app::BufferedReadCallback & GetBufferedCallback() { return mBufferedReadAdapter; }
 
-        VerifyOrExit(status == Protocols::InteractionModel::Status::Success, err = CHIP_ERROR_IM_STATUS_CODE_RECEIVED);
-        VerifyOrExit(aPath.mClusterId == AttributeTypeInfo::GetClusterId() && aPath.mFieldId == AttributeTypeInfo::GetAttributeId(),
-                     CHIP_ERROR_SCHEMA_MISMATCH);
+private:
+    void OnAttributeData(const app::ReadClient * apReadClient, const app::ConcreteDataAttributePath & aPath,
+                         TLV::TLVReader * apData, const app::StatusIB & aStatus) override
+    {
+        CHIP_ERROR err = CHIP_NO_ERROR;
+        DecodableAttributeType value;
+
+        //
+        // We shouldn't be getting list item operations in the provided path since that should be handled by the buffered read
+        // callback. If we do, that's a bug.
+        //
+        VerifyOrDie(!aPath.IsListItemOperation());
+
+        VerifyOrExit(aStatus.mStatus == Protocols::InteractionModel::Status::Success, err = CHIP_ERROR_IM_STATUS_CODE_RECEIVED);
+        VerifyOrExit(aPath.mClusterId == mClusterId && aPath.mAttributeId == mAttributeId, err = CHIP_ERROR_SCHEMA_MISMATCH);
         VerifyOrExit(apData != nullptr, err = CHIP_ERROR_INVALID_ARGUMENT);
 
         err = app::DataModel::Decode(*apData, value);
         SuccessOrExit(err);
 
-        mOnSuccess(attributePath, value);
+        mOnSuccess(aPath, value);
 
     exit:
         if (err != CHIP_NO_ERROR)
         {
             //
-            // Override status to indicate an error if something bad happened above.
+            // Override aStatus to indicate an error if something bad happened above.
             //
-            if (status == Protocols::InteractionModel::Status::Success)
+            Protocols::InteractionModel::Status imStatus = aStatus.mStatus;
+            if (aStatus.mStatus == Protocols::InteractionModel::Status::Success)
             {
-                status = Protocols::InteractionModel::Status::Failure;
+                imStatus = Protocols::InteractionModel::Status::Failure;
             }
 
-            mOnError(&attributePath, status, err);
+            mOnError(&aPath, imStatus, err);
         }
     }
 
-    CHIP_ERROR ReadError(app::ReadClient * apReadClient, CHIP_ERROR aError) override
+    void OnError(const app::ReadClient * apReadClient, CHIP_ERROR aError) override
     {
         mOnError(nullptr, Protocols::InteractionModel::Status::Failure, aError);
-        mOnDone(apReadClient, this);
-        return CHIP_NO_ERROR;
     }
 
-    CHIP_ERROR ReadDone(app::ReadClient * apReadClient) override
+    void OnDone(app::ReadClient * apReadClient) override { mOnDone(apReadClient, this); }
+
+    ClusterId mClusterId;
+    AttributeId mAttributeId;
+    OnSuccessCallbackType mOnSuccess;
+    OnErrorCallbackType mOnError;
+    OnDoneCallbackType mOnDone;
+    app::BufferedReadCallback mBufferedReadAdapter;
+};
+
+template <typename DecodableEventTypeInfo>
+class TypedReadEventCallback final : public app::ReadClient::Callback
+{
+public:
+    using OnSuccessCallbackType = std::function<void(const app::EventHeader & aEventHeader, const DecodableEventTypeInfo & aData)>;
+    using OnErrorCallbackType   = std::function<void(const app::EventHeader * apEventHeader,
+                                                   Protocols::InteractionModel::Status aIMStatus, CHIP_ERROR aError)>;
+    using OnDoneCallbackType    = std::function<void(app::ReadClient * client, TypedReadEventCallback * callback)>;
+
+    TypedReadEventCallback(ClusterId aClusterId, EventId aEventId, OnSuccessCallbackType aOnSuccess, OnErrorCallbackType aOnError,
+                           OnDoneCallbackType aOnDone) :
+        mClusterId(aClusterId),
+        mEventId(aEventId), mOnSuccess(aOnSuccess), mOnError(aOnError), mOnDone(aOnDone)
+    {}
+
+private:
+    void OnEventData(const app::ReadClient * apReadClient, const app::EventHeader & aEventHeader, TLV::TLVReader * apData,
+                     const app::StatusIB * apStatus) override
     {
-        mOnDone(apReadClient, this);
-        return CHIP_NO_ERROR;
+        CHIP_ERROR err = CHIP_NO_ERROR;
+        DecodableEventTypeInfo value;
+
+        VerifyOrExit(apData != nullptr, err = CHIP_ERROR_INVALID_ARGUMENT);
+
+        err = apReadClient->DecodeEvent(aEventHeader, value, *apData);
+        SuccessOrExit(err);
+
+        mOnSuccess(aEventHeader, value);
+
+    exit:
+        if (err != CHIP_NO_ERROR)
+        {
+            mOnError(&aEventHeader, Protocols::InteractionModel::Status::Failure, err);
+        }
     }
 
+    void OnError(const app::ReadClient * apReadClient, CHIP_ERROR aError) override
+    {
+        mOnError(nullptr, Protocols::InteractionModel::Status::Failure, aError);
+    }
+
+    void OnDone(app::ReadClient * apReadClient) override { mOnDone(apReadClient, this); }
+
+    ClusterId mClusterId;
+    EventId mEventId;
     OnSuccessCallbackType mOnSuccess;
     OnErrorCallbackType mOnError;
     OnDoneCallbackType mOnDone;

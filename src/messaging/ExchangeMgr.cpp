@@ -59,7 +59,7 @@ namespace Messaging {
  *    prior to use.
  *
  */
-ExchangeManager::ExchangeManager() : mDelegate(nullptr), mReliableMessageMgr(mContextPool)
+ExchangeManager::ExchangeManager() : mReliableMessageMgr(mContextPool)
 {
     mState = State::kState_NotInitialized;
 }
@@ -83,9 +83,10 @@ CHIP_ERROR ExchangeManager::Init(SessionManager * sessionManager)
         handler.Reset();
     }
 
-    sessionManager->SetDelegate(this);
+    sessionManager->RegisterReleaseDelegate(*this);
+    sessionManager->SetMessageDelegate(this);
 
-    mReliableMessageMgr.Init(sessionManager->SystemLayer(), sessionManager);
+    mReliableMessageMgr.Init(sessionManager->SystemLayer());
     ReturnErrorOnFailure(mDefaultExchangeDispatch.Init(mSessionManager));
 
     mState = State::kState_Initialized;
@@ -99,13 +100,14 @@ CHIP_ERROR ExchangeManager::Shutdown()
 
     mContextPool.ForEachActiveObject([](auto * ec) {
         // There should be no active object in the pool
-        assert(false);
-        return true;
+        VerifyOrDie(false);
+        return Loop::Continue;
     });
 
     if (mSessionManager != nullptr)
     {
-        mSessionManager->SetDelegate(nullptr);
+        mSessionManager->SetMessageDelegate(nullptr);
+        mSessionManager->UnregisterReleaseDelegate(*this);
         mSessionManager = nullptr;
     }
 
@@ -138,16 +140,6 @@ CHIP_ERROR ExchangeManager::UnregisterUnsolicitedMessageHandlerForProtocol(Proto
 CHIP_ERROR ExchangeManager::UnregisterUnsolicitedMessageHandlerForType(Protocols::Id protocolId, uint8_t msgType)
 {
     return UnregisterUMH(protocolId, static_cast<int16_t>(msgType));
-}
-
-void ExchangeManager::OnReceiveError(CHIP_ERROR error, const Transport::PeerAddress & source)
-{
-#if CHIP_ERROR_LOGGING
-    char srcAddressStr[Transport::PeerAddress::kMaxToStringSize];
-    source.ToString(srcAddressStr);
-
-    ChipLogError(ExchangeManager, "Error receiving message from %s: %s", srcAddressStr, ErrorStr(error));
-#endif // CHIP_ERROR_LOGGING
 }
 
 CHIP_ERROR ExchangeManager::RegisterUMH(Protocols::Id protocolId, int16_t msgType, ExchangeDelegate * delegate)
@@ -213,29 +205,37 @@ void ExchangeManager::OnMessageReceived(const PacketHeader & packetHeader, const
         msgFlags.Set(MessageFlagValues::kDuplicateMessage);
     }
 
-    // Search for an existing exchange that the message applies to. If a match is found...
-    bool found = false;
-    mContextPool.ForEachActiveObject([&](auto * ec) {
-        if (ec->MatchExchange(session, packetHeader, payloadHeader))
-        {
-            // Found a matching exchange. Set flag for correct subsequent MRP
-            // retransmission timeout selection.
-            if (!ec->HasRcvdMsgFromPeer())
-            {
-                ec->SetMsgRcvdFromPeer(true);
-            }
-
-            // Matched ExchangeContext; send to message handler.
-            ec->HandleMessage(packetHeader.GetMessageCounter(), payloadHeader, source, msgFlags, std::move(msgBuf));
-            found = true;
-            return false;
-        }
-        return true;
-    });
-
-    if (found)
+    // Skip retrieval of exchange for group message since no exchange is stored
+    // for group msg (optimization)
+    if (!packetHeader.IsGroupSession())
     {
-        return;
+        // Search for an existing exchange that the message applies to. If a match is found...
+        bool found = false;
+        mContextPool.ForEachActiveObject([&](auto * ec) {
+            if (ec->MatchExchange(session, packetHeader, payloadHeader))
+            {
+                // Found a matching exchange. Set flag for correct subsequent MRP
+                // retransmission timeout selection.
+                if (!ec->HasRcvdMsgFromPeer())
+                {
+                    ec->SetMsgRcvdFromPeer(true);
+                }
+
+                ChipLogDetail(ExchangeManager, "Found matching exchange: " ChipLogFormatExchange ", Delegate: %p",
+                              ChipLogValueExchange(ec), ec->GetDelegate());
+
+                // Matched ExchangeContext; send to message handler.
+                ec->HandleMessage(packetHeader.GetMessageCounter(), payloadHeader, source, msgFlags, std::move(msgBuf));
+                found = true;
+                return Loop::Break;
+            }
+            return Loop::Continue;
+        });
+
+        if (found)
+        {
+            return;
+        }
     }
 
     // If it's not a duplicate message, search for an unsolicited message handler if it is marked as being sent by an initiator.
@@ -290,7 +290,7 @@ void ExchangeManager::OnMessageReceived(const PacketHeader & packetHeader, const
             return;
         }
 
-        ChipLogDetail(ExchangeManager, "Handling via exchange: " ChipLogFormatExchange ", Delegate: 0x%p", ChipLogValueExchange(ec),
+        ChipLogDetail(ExchangeManager, "Handling via exchange: " ChipLogFormatExchange ", Delegate: %p", ChipLogValueExchange(ec),
                       ec->GetDelegate());
 
         if (ec->IsEncryptionRequired() != packetHeader.IsEncrypted())
@@ -309,29 +309,21 @@ void ExchangeManager::OnMessageReceived(const PacketHeader & packetHeader, const
     }
 }
 
-void ExchangeManager::OnNewConnection(SessionHandle session)
+void ExchangeManager::OnSessionReleased(SessionHandle session)
 {
-    if (mDelegate != nullptr)
-    {
-        mDelegate->OnNewConnection(session, this);
-    }
+    ExpireExchangesForSession(session);
 }
 
-void ExchangeManager::OnConnectionExpired(SessionHandle session)
+void ExchangeManager::ExpireExchangesForSession(SessionHandle session)
 {
-    if (mDelegate != nullptr)
-    {
-        mDelegate->OnConnectionExpired(session, this);
-    }
-
     mContextPool.ForEachActiveObject([&](auto * ec) {
-        if (ec->mSecureSession.HasValue() && ec->mSecureSession.Value() == session)
+        if (ec->mSession.HasValue() && ec->mSession.Value() == session)
         {
             ec->OnConnectionExpired();
             // Continue to iterate because there can be multiple exchanges
             // associated with the connection.
         }
-        return true;
+        return Loop::Continue;
     });
 }
 
@@ -347,7 +339,7 @@ void ExchangeManager::CloseAllContextsForDelegate(const ExchangeDelegate * deleg
             ec->SetDelegate(nullptr);
             ec->Close();
         }
-        return true;
+        return Loop::Continue;
     });
 }
 

@@ -292,6 +292,42 @@ void emberAfTick(void)
 #endif
 }
 
+// Cluster init functions that don't have a cluster implementation to define
+// them in.
+void MatterBooleanStatePluginServerInitCallback() {}
+void MatterBridgedDeviceBasicPluginServerInitCallback() {}
+void MatterElectricalMeasurementPluginServerInitCallback() {}
+void MatterOtaSoftwareUpdateRequestorPluginServerInitCallback() {}
+void MatterGroupKeyManagementPluginServerInitCallback() {}
+void MatterRelativeHumidityMeasurementPluginServerInitCallback() {}
+void MatterFixedLabelPluginServerInitCallback() {}
+void MatterSwitchPluginServerInitCallback() {}
+void MatterIlluminanceMeasurementPluginServerInitCallback() {}
+void MatterBinaryInputBasicPluginServerInitCallback() {}
+void MatterPressureMeasurementPluginServerInitCallback() {}
+void MatterTemperatureMeasurementPluginServerInitCallback() {}
+void MatterFlowMeasurementPluginServerInitCallback() {}
+void MatterWakeOnLanPluginServerInitCallback() {}
+void MatterOnOffSwitchConfigurationPluginServerInitCallback() {}
+void MatterPowerSourcePluginServerInitCallback() {}
+void MatterThermostatUserInterfaceConfigurationPluginServerInitCallback() {}
+void MatterBridgedDeviceBasicInformationPluginServerInitCallback() {}
+void MatterPowerConfigurationPluginServerInitCallback() {}
+void MatterPowerProfilePluginServerInitCallback() {}
+void MatterPulseWidthModulationPluginServerInitCallback() {}
+void MatterAlarmsPluginServerInitCallback() {}
+void MatterTimePluginServerInitCallback() {}
+void MatterAclPluginServerInitCallback() {}
+void MatterPollControlPluginServerInitCallback() {}
+void MatterLocalizationConfigurationPluginServerInitCallback() {}
+void MatterLocalizationUnitPluginServerInitCallback() {}
+void MatterLocalizationTimeFormatPluginServerInitCallback() {}
+void MatterUserLabelPluginServerInitCallback() {}
+void MatterTimeSynchronizationPluginServerInitCallback() {}
+void MatterProxyValidPluginServerInitCallback() {}
+void MatterProxyDiscoveryPluginServerInitCallback() {}
+void MatterProxyConfigurationPluginServerInitCallback() {}
+
 // ****************************************
 // This function is called by the application when the stack goes down,
 // such as after a leave network. This allows zcl utils to clear state
@@ -421,9 +457,11 @@ static bool dispatchZclMessage(EmberAfClusterCommand * cmd)
     }
 #ifdef EMBER_AF_PLUGIN_GROUPS_SERVER
     else if ((cmd->type == EMBER_INCOMING_MULTICAST || cmd->type == EMBER_INCOMING_MULTICAST_LOOPBACK) &&
-             !emberAfGroupsClusterEndpointInGroupCallback(cmd->apsFrame->destinationEndpoint, cmd->apsFrame->groupId))
+             !emberAfGroupsClusterEndpointInGroupCallback(cmd->source->GetSessionHandle().GetFabricIndex(),
+                                                          cmd->apsFrame->destinationEndpoint, cmd->apsFrame->groupId))
     {
-        emberAfDebugPrint("Drop cluster 0x%2x command 0x%x", cmd->apsFrame->clusterId, cmd->commandId);
+        emberAfDebugPrint("Drop cluster " ChipLogFormatMEI " command " ChipLogFormatMEI, ChipLogValueMEI(cmd->apsFrame->clusterId),
+                          ChipLogValueMEI(cmd->commandId));
         emberAfDebugPrint(" for endpoint 0x%x due to wrong %s: ", cmd->apsFrame->destinationEndpoint, "group");
         emberAfDebugPrintln("0x%02x", cmd->apsFrame->groupId);
         return false;
@@ -879,7 +917,7 @@ void emberAfCopyLongString(uint8_t * dest, const uint8_t * src, size_t size)
 // You can pass in val1 as NULL, which will assume that it is
 // pointing to an array of all zeroes. This is used so that
 // default value of NULL is treated as all zeroes.
-int8_t emberAfCompareValues(uint8_t * val1, uint8_t * val2, uint16_t len, bool signedNumber)
+int8_t emberAfCompareValues(const uint8_t * val1, const uint8_t * val2, uint16_t len, bool signedNumber)
 {
     uint8_t i, j, k;
     if (signedNumber)

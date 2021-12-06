@@ -49,8 +49,8 @@ CHIP_ERROR DeviceControllerFactory::Init(FactoryInitParams params)
         return CHIP_NO_ERROR;
     }
 
-    mListenPort      = params.listenPort;
-    mStorageDelegate = params.storageDelegate;
+    mListenPort    = params.listenPort;
+    mFabricStorage = params.fabricStorage;
 
     CHIP_ERROR err = InitSystemState(params);
 
@@ -91,7 +91,7 @@ CHIP_ERROR DeviceControllerFactory::InitSystemState(FactoryInitParams params)
     ReturnErrorOnFailure(DeviceLayer::PlatformMgr().InitChipStack());
 
     stateParams.systemLayer = &DeviceLayer::SystemLayer();
-    stateParams.inetLayer   = &DeviceLayer::InetLayer;
+    stateParams.inetLayer   = &DeviceLayer::InetLayer();
 #else
     stateParams.systemLayer = params.systemLayer;
     stateParams.inetLayer   = params.inetLayer;
@@ -134,7 +134,7 @@ CHIP_ERROR DeviceControllerFactory::InitSystemState(FactoryInitParams params)
     stateParams.exchangeMgr           = chip::Platform::New<Messaging::ExchangeManager>();
     stateParams.messageCounterManager = chip::Platform::New<secure_channel::MessageCounterManager>();
 
-    ReturnErrorOnFailure(stateParams.fabricTable->Init(mStorageDelegate));
+    ReturnErrorOnFailure(stateParams.fabricTable->Init(mFabricStorage));
     ReturnErrorOnFailure(
         stateParams.sessionMgr->Init(stateParams.systemLayer, stateParams.transportMgr, stateParams.messageCounterManager));
     ReturnErrorOnFailure(stateParams.exchangeMgr->Init(stateParams.sessionMgr));
@@ -159,10 +159,11 @@ void DeviceControllerFactory::PopulateInitParams(ControllerInitParams & controll
     controllerParams.controllerNOC                  = params.controllerNOC;
     controllerParams.controllerICAC                 = params.controllerICAC;
     controllerParams.controllerRCAC                 = params.controllerRCAC;
+    controllerParams.fabricIndex                    = params.fabricIndex;
     controllerParams.fabricId                       = params.fabricId;
+    controllerParams.storageDelegate                = params.storageDelegate;
 
     controllerParams.systemState        = mSystemState;
-    controllerParams.storageDelegate    = mStorageDelegate;
     controllerParams.controllerVendorId = params.controllerVendorId;
 }
 
@@ -210,7 +211,7 @@ DeviceControllerFactory::~DeviceControllerFactory()
         chip::Platform::Delete(mSystemState);
         mSystemState = nullptr;
     }
-    mStorageDelegate = nullptr;
+    mFabricStorage = nullptr;
 }
 
 CHIP_ERROR DeviceControllerSystemState::Shutdown()
@@ -221,6 +222,15 @@ CHIP_ERROR DeviceControllerSystemState::Shutdown()
 
     // Shut down the interaction model
     app::InteractionModelEngine::GetInstance()->Shutdown();
+
+    // Shut down the TransportMgr. This holds Inet::UDPEndPoints so it must be shut down
+    // before PlatformMgr().Shutdown() shuts down Inet.
+    if (mTransportMgr != nullptr)
+    {
+        mTransportMgr->Close();
+        chip::Platform::Delete(mTransportMgr);
+        mTransportMgr = nullptr;
+    }
 
 #if CONFIG_DEVICE_LAYER
     //
@@ -246,11 +256,6 @@ CHIP_ERROR DeviceControllerSystemState::Shutdown()
 
     mSystemLayer = nullptr;
     mInetLayer   = nullptr;
-    if (mTransportMgr != nullptr)
-    {
-        chip::Platform::Delete(mTransportMgr);
-        mTransportMgr = nullptr;
-    }
 
     if (mMessageCounterManager != nullptr)
     {

@@ -100,8 +100,9 @@ class Esp32Builder(Builder):
         self.enable_ipv4 = enable_ipv4
 
     def _IdfEnvExecute(self, cmd, title=None):
+        # Run activate.sh after export.sh to ensure using the chip environment.
         self._Execute(
-            ['bash', '-c', 'source $IDF_PATH/export.sh; %s' % cmd],
+            ['bash', '-c', 'source $IDF_PATH/export.sh; source scripts/activate.sh; %s' % cmd],
             title=title)
 
     @property
@@ -128,7 +129,7 @@ class Esp32Builder(Builder):
 
         if not self.enable_ipv4:
             self._Execute(
-                ['bash', '-c', 'echo CONFIG_DISABLE_IPV4=y >>%s' % shlex.quote(defaults_out)])
+                ['bash', '-c', 'echo -e "\\nCONFIG_DISABLE_IPV4=y\\n" >>%s' % shlex.quote(defaults_out)])
 
         cmd = "\nexport SDKCONFIG_DEFAULTS={defaults}\nidf.py -C {example_path} -B {out} reconfigure".format(
             defaults=shlex.quote(defaults_out),

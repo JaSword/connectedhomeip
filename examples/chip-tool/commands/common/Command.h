@@ -18,9 +18,10 @@
 
 #pragma once
 
-#include "controller/ExampleOperationalCredentialsIssuer.h"
+#include <app/data-model/Nullable.h>
 #include <controller/CHIPDeviceController.h>
 #include <inet/InetInterface.h>
+#include <lib/core/Optional.h>
 #include <lib/support/Span.h>
 #include <lib/support/logging/CHIPLogging.h>
 
@@ -31,6 +32,10 @@
 #include <vector>
 
 class Command;
+
+// Limits on endpoint values.
+#define CHIP_ZCL_ENDPOINT_MIN 0x00
+#define CHIP_ZCL_ENDPOINT_MAX 0xF0
 
 template <typename T, typename... Args>
 std::unique_ptr<Command> make_unique(Args &&... args)
@@ -57,6 +62,8 @@ enum ArgumentType
     Number_int16,
     Number_int32,
     Number_int64,
+    Float,
+    Double,
     Boolean,
     String,
     CharString,
@@ -72,6 +79,7 @@ struct Argument
     int64_t min;
     uint64_t max;
     void * value;
+    bool optional;
 };
 
 class Command
@@ -89,10 +97,11 @@ public:
     const char * GetName(void) const { return mName; }
     const char * GetAttribute(void) const;
     const char * GetArgumentName(size_t index) const;
+    bool GetArgumentIsOptional(size_t index) const { return mArgs[index].optional; }
     size_t GetArgumentsCount(void) const { return mArgs.size(); }
 
     bool InitArguments(int argc, char ** argv);
-    size_t AddArgument(const char * name, const char * value);
+    size_t AddArgument(const char * name, const char * value, bool optional = false);
     /**
      * @brief
      *   Add a char string command argument
@@ -101,62 +110,98 @@ public:
      * @param value A pointer to a `char *` where the argv value will be stored
      * @returns The number of arguments currently added to the command
      */
-    size_t AddArgument(const char * name, char ** value);
+    size_t AddArgument(const char * name, char ** value, bool optional = false);
     /**
      * Add an octet string command argument
      */
-    size_t AddArgument(const char * name, chip::ByteSpan * value);
-    size_t AddArgument(const char * name, chip::Span<const char> * value);
-    size_t AddArgument(const char * name, AddressWithInterface * out);
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, bool * out)
+    size_t AddArgument(const char * name, chip::ByteSpan * value, bool optional = false);
+    size_t AddArgument(const char * name, chip::Span<const char> * value, bool optional = false);
+    size_t AddArgument(const char * name, AddressWithInterface * out, bool optional = false);
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, bool * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Boolean);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Boolean, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, int8_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, int8_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int8);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int8, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, int16_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, int16_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int16);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int16, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, int32_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, int32_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int32);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int32, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, int64_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, int64_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int64);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_int64, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint8_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint8_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint8);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint8, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint16_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint16_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint16);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint16, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint32_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint32_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint32);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint32, optional);
     }
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint64_t * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, uint64_t * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint64);
+        return AddArgument(name, min, max, reinterpret_cast<void *>(out), Number_uint64, optional);
     }
 
+    size_t AddArgument(const char * name, float min, float max, float * out, bool optional = false);
+    size_t AddArgument(const char * name, double min, double max, double * out, bool optional = false);
+
     template <typename T, typename = std::enable_if_t<std::is_enum<T>::value>>
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, T * out)
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, T * out, bool optional = false)
     {
-        return AddArgument(name, min, max, reinterpret_cast<std::underlying_type_t<T> *>(out));
+        return AddArgument(name, min, max, reinterpret_cast<std::underlying_type_t<T> *>(out), optional);
+    }
+
+    template <typename T>
+    size_t AddArgument(const char * name, chip::Optional<T> * value)
+    {
+        return AddArgument(name, reinterpret_cast<T *>(value), true);
+    }
+
+    template <typename T>
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, chip::Optional<T> * value)
+    {
+        return AddArgument(name, min, max, reinterpret_cast<T *>(value), true);
+    }
+
+    template <typename T>
+    size_t AddArgument(const char * name, chip::app::DataModel::Nullable<T> * value, bool optional = false)
+    {
+        // We always require our args to be provided for the moment.
+        return AddArgument(name, &value->SetNonNull(), optional);
+    }
+
+    template <typename T>
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, chip::app::DataModel::Nullable<T> * value,
+                       bool optional = false)
+    {
+        // We always require our args to be provided for the moment.
+        return AddArgument(name, min, max, &value->SetNonNull(), optional);
     }
 
     virtual CHIP_ERROR Run() = 0;
 
 private:
     bool InitArgument(size_t argIndex, char * argValue);
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, void * out, ArgumentType type);
-    size_t AddArgument(const char * name, int64_t min, uint64_t max, void * out);
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, void * out, ArgumentType type, bool optional);
+    size_t AddArgument(const char * name, int64_t min, uint64_t max, void * out, bool optional);
+
+    /**
+     * Add the Argument to our list.  This preserves the property that all
+     * optional arguments come at the end of the list.
+     */
+    size_t AddArgumentToList(Argument && argument);
 
     const char * mName = nullptr;
     std::vector<Argument> mArgs;

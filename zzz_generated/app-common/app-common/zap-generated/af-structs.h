@@ -37,7 +37,26 @@ typedef struct _SimpleStruct
     chip::ByteSpan d;
     chip::CharSpan e;
     uint8_t f;
+    float g;
+    double h;
 } SimpleStruct;
+
+// Struct for NullablesAndOptionalsStruct
+typedef struct _NullablesAndOptionalsStruct
+{
+    uint16_t NullableInt;
+    uint16_t OptionalInt;
+    uint16_t NullableOptionalInt;
+    chip::CharSpan NullableString;
+    chip::CharSpan OptionalString;
+    chip::CharSpan NullableOptionalString;
+    SimpleStruct NullableStruct;
+    SimpleStruct OptionalStruct;
+    SimpleStruct NullableOptionalStruct;
+    /* TYPE WARNING: array array defaults to */ uint8_t * NullableList;
+    /* TYPE WARNING: array array defaults to */ uint8_t * OptionalList;
+    /* TYPE WARNING: array array defaults to */ uint8_t * NullableOptionalList;
+} NullablesAndOptionalsStruct;
 
 // Struct for NestedStruct
 typedef struct _NestedStruct
@@ -79,6 +98,35 @@ typedef struct _ContentLaunchParamater
     chip::CharSpan Value;
     /* TYPE WARNING: array array defaults to */ uint8_t * ExternalIDList;
 } ContentLaunchParamater;
+
+// Struct for Target
+typedef struct _Target
+{
+    uint32_t Cluster;
+    uint16_t Endpoint;
+    uint32_t DeviceType;
+} Target;
+
+// Struct for AccessControlEntry
+typedef struct _AccessControlEntry
+{
+    chip::FabricIndex FabricIndex;
+    uint8_t Privilege;
+    uint8_t AuthMode;
+    /* TYPE WARNING: array array defaults to */ uint8_t * Subjects;
+    /* TYPE WARNING: array array defaults to */ uint8_t * Targets;
+} AccessControlEntry;
+
+// Struct for ActionStruct
+typedef struct _ActionStruct
+{
+    uint16_t ActionID;
+    chip::CharSpan Name;
+    uint8_t Type;
+    uint16_t EndpointListID;
+    uint16_t SupportedCommands;
+    uint8_t Status;
+} ActionStruct;
 
 // Struct for ApplicationLauncherApp
 typedef struct _ApplicationLauncherApp
@@ -149,6 +197,29 @@ typedef struct _DeviceType
     uint16_t revision;
 } DeviceType;
 
+// Struct for DlCredential
+typedef struct _DlCredential
+{
+    uint8_t CredentialType;
+    uint16_t CredentialIndex;
+} DlCredential;
+
+// Struct for EndpointListStruct
+typedef struct _EndpointListStruct
+{
+    uint16_t EndpointListID;
+    chip::CharSpan Name;
+    uint8_t Type;
+    /* TYPE WARNING: array array defaults to */ uint8_t * Endpoints;
+} EndpointListStruct;
+
+// Struct for ExtensionEntry
+typedef struct _ExtensionEntry
+{
+    chip::FabricIndex FabricIndex;
+    chip::ByteSpan Data;
+} ExtensionEntry;
+
 // Struct for FabricDescriptor
 typedef struct _FabricDescriptor
 {
@@ -207,6 +278,14 @@ typedef struct _MediaPlaybackPosition
     uint64_t updatedAt;
     uint64_t position;
 } MediaPlaybackPosition;
+
+// Struct for ModeOptionStruct
+typedef struct _ModeOptionStruct
+{
+    chip::CharSpan Label;
+    uint8_t Mode;
+    uint32_t SemanticTag;
+} ModeOptionStruct;
 
 // Struct for NOCStruct
 typedef struct _NOCStruct
@@ -345,6 +424,21 @@ typedef struct _SecurityPolicy
     uint16_t RotationTime;
     uint16_t Flags;
 } SecurityPolicy;
+
+// Struct for SemanticTag
+typedef struct _SemanticTag
+{
+    uint16_t MfgCode;
+    uint16_t Value;
+} SemanticTag;
+
+// Struct for SoftwareFault
+typedef struct _SoftwareFault
+{
+    uint64_t Id;
+    chip::CharSpan Name;
+    chip::ByteSpan FaultRecording;
+} SoftwareFault;
 
 // Struct for TestListStructOctet
 typedef struct _TestListStructOctet

@@ -18,81 +18,97 @@
 
 #include "basic.h"
 
+#include <app-common/zap-generated/attributes/Accessors.h>
 #include <platform/CHIPDeviceLayer.h>
-
-#include <app-common/zap-generated/att-storage.h>
-#include <app-common/zap-generated/attribute-id.h>
-#include <app-common/zap-generated/attribute-type.h>
-#include <app-common/zap-generated/cluster-id.h>
-#include <app/util/af.h>
-#include <app/util/attribute-storage.h>
-#include <lib/support/ZclString.h>
-#include <protocols/interaction_model/Constants.h>
+#include <platform/ConfigurationManager.h>
 
 #include <cstring>
 
 using namespace chip;
+using namespace chip::app::Clusters::Basic;
 using namespace chip::DeviceLayer;
 
 void emberAfBasicClusterServerInitCallback(chip::EndpointId endpoint)
 {
-    uint16_t vendorId;
-    uint16_t productId;
-    uint16_t productRevision;
-    uint32_t firmwareRevision;
-    char cString[65];
-    uint8_t bufferMemory[65];
-    MutableByteSpan zclString(bufferMemory);
+    EmberAfStatus status;
 
-    if (ConfigurationMgr().GetVendorName(cString, sizeof(cString)) == CHIP_NO_ERROR)
+    char vendorName[DeviceLayer::ConfigurationManager::kMaxVendorNameLength + 1];
+    if (ConfigurationMgr().GetVendorName(vendorName, sizeof(vendorName)) == CHIP_NO_ERROR)
     {
-        MakeZclCharString(zclString, cString);
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_VENDOR_NAME_ATTRIBUTE_ID, CLUSTER_MASK_SERVER, zclString.data(),
-                              ZCL_CHAR_STRING_ATTRIBUTE_TYPE);
+        status = Attributes::VendorName::Set(endpoint, chip::CharSpan(vendorName, strlen(vendorName)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Vendor Name: 0x%02x", status));
     }
 
+    uint16_t vendorId;
     if (ConfigurationMgr().GetVendorId(vendorId) == CHIP_NO_ERROR)
     {
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_VENDOR_ID_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              reinterpret_cast<uint8_t *>(&vendorId), ZCL_INT16U_ATTRIBUTE_TYPE);
+        status = Attributes::VendorID::Set(endpoint, vendorId);
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Vendor Id: 0x%02x", status));
     }
 
-    if (ConfigurationMgr().GetProductName(cString, sizeof(cString)) == CHIP_NO_ERROR)
+    char productName[DeviceLayer::ConfigurationManager::kMaxProductNameLength + 1];
+    if (ConfigurationMgr().GetProductName(productName, sizeof(productName)) == CHIP_NO_ERROR)
     {
-        MakeZclCharString(zclString, cString);
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_PRODUCT_NAME_ATTRIBUTE_ID, CLUSTER_MASK_SERVER, zclString.data(),
-                              ZCL_CHAR_STRING_ATTRIBUTE_TYPE);
+        status = Attributes::ProductName::Set(endpoint, chip::CharSpan(productName, strlen(productName)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Product Name: 0x%02x", status));
     }
 
+    uint16_t productId;
     if (ConfigurationMgr().GetProductId(productId) == CHIP_NO_ERROR)
     {
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_PRODUCT_ID_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              reinterpret_cast<uint8_t *>(&productId), ZCL_INT16U_ATTRIBUTE_TYPE);
+        status = Attributes::ProductID::Set(endpoint, productId);
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Product Id: 0x%02x", status));
     }
 
-    if (ConfigurationMgr().GetProductRevisionString(cString, sizeof(cString)) == CHIP_NO_ERROR)
+    char hardwareVersionString[DeviceLayer::ConfigurationManager::kMaxHardwareVersionStringLength + 1];
+    if (ConfigurationMgr().GetHardwareVersionString(hardwareVersionString, sizeof(hardwareVersionString)) == CHIP_NO_ERROR)
     {
-        MakeZclCharString(zclString, cString);
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_HARDWARE_VERSION_STRING_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              zclString.data(), ZCL_CHAR_STRING_ATTRIBUTE_TYPE);
+        status = Attributes::HardwareVersionString::Set(endpoint, CharSpan(hardwareVersionString, strlen(hardwareVersionString)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status,
+                       ChipLogError(Zcl, "Error setting Hardware Version String: 0x%02x", status));
     }
 
-    if (ConfigurationMgr().GetProductRevision(productRevision) == CHIP_NO_ERROR)
+    uint16_t hardwareVersion;
+    if (ConfigurationMgr().GetHardwareVersion(hardwareVersion) == CHIP_NO_ERROR)
     {
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_HARDWARE_VERSION_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              reinterpret_cast<uint8_t *>(&productRevision), ZCL_INT16U_ATTRIBUTE_TYPE);
+        status = Attributes::HardwareVersion::Set(endpoint, hardwareVersion);
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Hardware Version: 0x%02x", status));
     }
 
-    if (ConfigurationMgr().GetFirmwareRevisionString(cString, sizeof(cString)) == CHIP_NO_ERROR)
+    char softwareVersionString[DeviceLayer::ConfigurationManager::kMaxSoftwareVersionLength + 1];
+    if (ConfigurationMgr().GetSoftwareVersionString(softwareVersionString, sizeof(softwareVersionString)) == CHIP_NO_ERROR)
     {
-        MakeZclCharString(zclString, cString);
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_SOFTWARE_VERSION_STRING_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              zclString.data(), ZCL_CHAR_STRING_ATTRIBUTE_TYPE);
+        status = Attributes::SoftwareVersionString::Set(endpoint, CharSpan(softwareVersionString, strlen(softwareVersionString)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status,
+                       ChipLogError(Zcl, "Error setting Software Version String: 0x%02x", status));
     }
 
-    if (ConfigurationMgr().GetFirmwareRevision(firmwareRevision) == CHIP_NO_ERROR)
+    uint16_t softwareVersion;
+    if (ConfigurationMgr().GetSoftwareVersion(softwareVersion) == CHIP_NO_ERROR)
     {
-        emberAfWriteAttribute(endpoint, ZCL_BASIC_CLUSTER_ID, ZCL_SOFTWARE_VERSION_ATTRIBUTE_ID, CLUSTER_MASK_SERVER,
-                              reinterpret_cast<uint8_t *>(&firmwareRevision), ZCL_INT32U_ATTRIBUTE_TYPE);
+        status = Attributes::SoftwareVersion::Set(endpoint, softwareVersion);
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Software Version: 0x%02x", status));
+    }
+
+    char serialNumberString[DeviceLayer::ConfigurationManager::kMaxSerialNumberLength + 1];
+    if (ConfigurationMgr().GetSerialNumber(serialNumberString, sizeof(serialNumberString)) == CHIP_NO_ERROR)
+    {
+        status = Attributes::SerialNumber::Set(endpoint, CharSpan(serialNumberString, strlen(serialNumberString)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status, ChipLogError(Zcl, "Error setting Serial Number String: 0x%02x", status));
+    }
+
+    char manufacturingDateString[DeviceLayer::ConfigurationManager::kMaxManufacturingDateLength + 1];
+    uint16_t manufacturingYear;
+    uint8_t manufacturingMonth;
+    uint8_t manufacturingDayOfMonth;
+    if (ConfigurationMgr().GetManufacturingDate(manufacturingYear, manufacturingMonth, manufacturingDayOfMonth) == CHIP_NO_ERROR)
+    {
+        snprintf(manufacturingDateString, sizeof(manufacturingDateString), "%04" PRIu16 "-%02" PRIu16 "-%02" PRIu16,
+                 manufacturingYear, manufacturingMonth, manufacturingDayOfMonth);
+        status = Attributes::ManufacturingDate::Set(endpoint, CharSpan(manufacturingDateString, strlen(manufacturingDateString)));
+        VerifyOrReturn(EMBER_ZCL_STATUS_SUCCESS == status,
+                       ChipLogError(Zcl, "Error setting Manufacturing Date String: 0x%02x", status));
     }
 }
+
+void MatterBasicPluginServerInitCallback() {}

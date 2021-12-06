@@ -125,6 +125,8 @@ public:
         OutputEvent() : EventType(OutputEventType::kNone) { statusData = { StatusCode::kNone }; }
         OutputEvent(OutputEventType type) : EventType(type) { statusData = { StatusCode::kNone }; }
 
+        const char * ToString(OutputEventType outputEventType);
+
         static OutputEvent TransferInitEvent(TransferInitData data, System::PacketBufferHandle msg);
         static OutputEvent TransferAcceptEvent(TransferAcceptData data);
         static OutputEvent TransferAcceptEvent(TransferAcceptData data, System::PacketBufferHandle msg);
@@ -275,6 +277,7 @@ public:
     uint64_t GetStartOffset() const { return mStartOffset; }
     uint64_t GetTransferLength() const { return mTransferLength; }
     uint16_t GetTransferBlockSize() const { return mTransferMaxBlockSize; }
+    size_t GetNumBytesProcessed() const { return mNumBytesProcessed; }
 
     TransferSession();
 
@@ -350,10 +353,10 @@ private:
     uint32_t mLastQueryNum = 0;
     uint32_t mNextQueryNum = 0;
 
-    System::Clock::Timeout mTimeout{ 0 };
-    System::Clock::Timestamp mTimeoutStartTime{ 0 };
-    bool mShouldInitTimeoutStart = true;
-    bool mAwaitingResponse       = false;
+    System::Clock::Timeout mTimeout            = System::Clock::kZero;
+    System::Clock::Timestamp mTimeoutStartTime = System::Clock::kZero;
+    bool mShouldInitTimeoutStart               = true;
+    bool mAwaitingResponse                     = false;
 };
 
 } // namespace bdx

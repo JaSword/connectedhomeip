@@ -29,6 +29,7 @@ from dataclasses import dataclass
 # CommandStatus should not contain padding
 IMCommandStatus = Struct(
     "Status" / Int16ul,
+    "ClusterStatus" / Int8ul,
     "EndpointId" / Int16ul,
     "ClusterId" / Int32ul,
     "CommandId" / Int32ul,
@@ -45,10 +46,17 @@ IMWriteStatus = Struct(
 )
 
 # AttributePath should not contain padding
-AttributePathStruct = Struct(
+AttributePathIBstruct = Struct(
     "EndpointId" / Int16ul,
     "ClusterId" / Int32ul,
     "AttributeId" / Int32ul,
+)
+
+# EventPath should not contain padding
+EventPathIBstruct = Struct(
+    "EndpointId" / Int16ul,
+    "ClusterId" / Int32ul,
+    "EventId" / Int32ul,
 )
 
 
@@ -61,9 +69,23 @@ class AttributePath:
 
 
 @dataclass
+class EventPath:
+    nodeId: int
+    endpointId: int
+    clusterId: int
+    eventId: int
+
+
+@dataclass
 class AttributeReadResult:
     path: AttributePath
     status: int
+    value: 'typing.Any'
+
+
+@dataclass
+class EventReadResult:
+    path: EventPath
     value: 'typing.Any'
 
 
@@ -132,8 +154,6 @@ def _SetCommandStatus(commandHandle: int, val):
 
 def _SetCommandIndexStatus(commandHandle: int, commandIndex: int, status):
     with _commandStatusLock:
-        print("SetCommandIndexStatus commandHandle={} commandIndex={}".format(
-            commandHandle, commandIndex))
         indexDict = _commandIndexStatusDict.get(commandHandle, {})
         indexDict[commandIndex] = status
         _commandIndexStatusDict[commandHandle] = indexDict
@@ -160,7 +180,7 @@ def _OnCommandResponse(commandHandle: int, errorcode: int):
 @ _OnReportDataFunct
 def _OnReportData(nodeId: int, appId: int, subscriptionId: int, attrPathBuf, attrPathBufLen: int, tlvDataBuf, tlvDataBufLen: int, statusCode: int):
     global _onSubscriptionReport
-    attrPath = AttributePathStruct.parse(
+    attrPath = AttributePathIBstruct.parse(
         ctypes.string_at(attrPathBuf, attrPathBufLen))
     tlvData = None
     path = AttributePath(nodeId, attrPath["EndpointId"],

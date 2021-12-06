@@ -26,21 +26,32 @@ const path              = require('path');
 // Import helpers from zap core
 const templateUtil = require(zapPath + 'dist/src-electron/generator/template-util.js')
 
-const { DelayCommands }                 = require('./simulated-clusters/TestDelayCommands.js');
-const { LogCommands }                   = require('./simulated-clusters/TestLogCommands.js');
-const { Clusters, asBlocks, asPromise } = require('./ClustersHelper.js');
-const { asUpperCamelCase }              = require(basePath + 'src/app/zap-templates/templates/app/helper.js');
+const { getClusters, getCommands, getAttributes, isTestOnlyCluster } = require('./simulated-clusters/SimulatedClusters.js');
+const { asBlocks }                                                   = require('./ClustersHelper.js');
 
-const kClusterName       = 'cluster';
-const kEndpointName      = 'endpoint';
-const kCommandName       = 'command';
-const kIndexName         = 'index';
-const kValuesName        = 'values';
-const kConstraintsName   = 'constraints';
-const kArgumentsName     = 'arguments';
-const kResponseName      = 'response';
-const kDisabledName      = 'disabled';
-const kResponseErrorName = 'error';
+const kIdentityName           = 'identity';
+const kClusterName            = 'cluster';
+const kEndpointName           = 'endpoint';
+const kGroupId                = 'groupId';
+const kCommandName            = 'command';
+const kWaitCommandName        = 'wait';
+const kIndexName              = 'index';
+const kValuesName             = 'values';
+const kConstraintsName        = 'constraints';
+const kArgumentsName          = 'arguments';
+const kResponseName           = 'response';
+const kDisabledName           = 'disabled';
+const kResponseErrorName      = 'error';
+const kResponseWrongErrorName = 'errorWrongValue';
+const kPICSName               = 'PICS';
+const kSaveAsName             = 'saveAs';
+
+class NullObject {
+  toString()
+  {
+    return "YOU SHOULD HAVE CHECKED (isLiteralNull definedValue)"
+  }
+};
 
 function throwError(test, errorStr)
 {
@@ -63,6 +74,39 @@ function setDefault(test, name, defaultValue)
 
 function setDefaultType(test)
 {
+  if (kWaitCommandName in test) {
+    setDefaultTypeForWaitCommand(test);
+  } else {
+    setDefaultTypeForCommand(test);
+  }
+}
+
+function setDefaultTypeForWaitCommand(test)
+{
+  const type = test[kWaitCommandName];
+  switch (type) {
+  case 'readAttribute':
+    test.isAttribute     = true;
+    test.isReadAttribute = true;
+    break;
+  case 'writeAttribute':
+    test.isAttribute      = true;
+    test.isWriteAttribute = true;
+    break;
+  case 'subscribeAttribute':
+    test.isAttribute          = true;
+    test.isSubscribeAttribute = true;
+    break;
+  default:
+    test.isCommand = true;
+    break;
+  }
+
+  test.isWait = true;
+}
+
+function setDefaultTypeForCommand(test)
+{
   const type = test[kCommandName];
   switch (type) {
   case 'readAttribute':
@@ -75,6 +119,10 @@ function setDefaultType(test)
     test.commandName      = 'Write';
     test.isAttribute      = true;
     test.isWriteAttribute = true;
+    if ((kGroupId in test)) {
+      test.isGroupCommand = true;
+      test.groupId        = parseInt(test[kGroupId], 10);
+    }
     break;
 
   case 'subscribeAttribute':
@@ -92,8 +140,32 @@ function setDefaultType(test)
   default:
     test.commandName = test.command;
     test.isCommand   = true;
+    if ((kGroupId in test)) {
+      test.isGroupCommand = true;
+      test.groupId        = parseInt(test[kGroupId], 10);
+    }
     break;
   }
+
+  test.isWait = false;
+}
+
+function setDefaultPICS(test)
+{
+  const defaultPICS = '';
+  setDefault(test, kPICSName, defaultPICS);
+
+  if (test[kPICSName] == '') {
+    return;
+  }
+
+  const items = test[kPICSName].split(/[&|() !]+/g).filter(item => item.length);
+  items.forEach(key => {
+    if (!PICS.has(key)) {
+      const errorStr = 'PICS database does not contains any defined value for: ' + key;
+      throwError(test, errorStr);
+    }
+  })
 }
 
 function setDefaultArguments(test)
@@ -117,19 +189,32 @@ function setDefaultArguments(test)
   delete test[kArgumentsName].value;
 }
 
+function ensureValidError(response, errorName)
+{
+  if (isNaN(response[errorName])) {
+    response[errorName] = "EMBER_ZCL_STATUS_" + response[errorName];
+  }
+}
+
 function setDefaultResponse(test)
 {
   const defaultResponse = {};
   setDefault(test, kResponseName, defaultResponse);
 
+  const hasResponseError = (kResponseErrorName in test[kResponseName]) || (kResponseWrongErrorName in test[kResponseName]);
+
   const defaultResponseError = 0;
   setDefault(test[kResponseName], kResponseErrorName, defaultResponseError);
+  setDefault(test[kResponseName], kResponseWrongErrorName, defaultResponseError);
 
   const defaultResponseValues = [];
   setDefault(test[kResponseName], kValuesName, defaultResponseValues);
 
   const defaultResponseConstraints = {};
   setDefault(test[kResponseName], kConstraintsName, defaultResponseConstraints);
+
+  const defaultResponseSaveAs = '';
+  setDefault(test[kResponseName], kSaveAsName, defaultResponseSaveAs);
 
   const hasResponseValue              = 'value' in test[kResponseName];
   const hasResponseConstraints        = 'constraints' in test[kResponseName] && Object.keys(test[kResponseName].constraints).length;
@@ -148,6 +233,14 @@ function setDefaultResponse(test)
     throwError(test, errorStr);
   }
 
+  ensureValidError(test[kResponseName], kResponseErrorName);
+  ensureValidError(test[kResponseName], kResponseWrongErrorName);
+
+  // Step that waits for a particular event does not requires constraints nor expected values.
+  if (test.isWait) {
+    return;
+  }
+
   if (!test.isAttribute) {
     return;
   }
@@ -161,19 +254,21 @@ function setDefaultResponse(test)
     return;
   }
 
-  if (!hasResponseValueOrConstraints) {
+  if (!hasResponseValueOrConstraints && !hasResponseError) {
     console.log(test);
     console.log(test[kResponseName]);
-    const errorStr = 'Test does not have a "value" or a "constraints" defined.';
+    const errorStr = 'Test does not have a "value" or a "constraints" defined and is not expecting an error.';
     throwError(test, errorStr);
   }
 
   if (hasResponseValue) {
-    test[kResponseName].values.push({ name : test.attribute, value : test[kResponseName].value });
+    test[kResponseName].values.push(
+        { name : test.attribute, value : test[kResponseName].value, saveAs : test[kResponseName].saveAs });
   }
 
   if (hasResponseConstraints) {
-    test[kResponseName].values.push({ name : test.attribute, constraints : test[kResponseName].constraints });
+    test[kResponseName].values.push(
+        { name : test.attribute, constraints : test[kResponseName].constraints, saveAs : test[kResponseName].saveAs });
   }
 
   delete test[kResponseName].value;
@@ -181,14 +276,17 @@ function setDefaultResponse(test)
 
 function setDefaults(test, defaultConfig)
 {
-  const defaultClusterName = defaultConfig[kClusterName] || null;
-  const defaultEndpointId  = kEndpointName in defaultConfig ? defaultConfig[kEndpointName] : null;
-  const defaultDisabled    = false;
+  const defaultIdentityName = kIdentityName in defaultConfig ? defaultConfig[kIdentityName] : "alpha";
+  const defaultClusterName  = defaultConfig[kClusterName] || null;
+  const defaultEndpointId   = kEndpointName in defaultConfig ? defaultConfig[kEndpointName] : null;
+  const defaultDisabled     = false;
 
   setDefaultType(test);
+  setDefault(test, kIdentityName, defaultIdentityName);
   setDefault(test, kClusterName, defaultClusterName);
   setDefault(test, kEndpointName, defaultEndpointId);
   setDefault(test, kDisabledName, defaultDisabled);
+  setDefaultPICS(test);
   setDefaultArguments(test);
   setDefaultResponse(test);
 }
@@ -243,11 +341,13 @@ function parse(filename)
 
   // Filter disabled tests
   yaml.tests = yaml.tests.filter(test => !test.disabled);
+
   yaml.tests.forEach((test, index) => {
     setDefault(test, kIndexName, index);
   });
 
   yaml.filename   = filename;
+  yaml.timeout    = yaml.config.timeout;
   yaml.totalTests = yaml.tests.length;
 
   return yaml;
@@ -258,37 +358,6 @@ function printErrorAndExit(context, msg)
   console.log(context.testName, ': ', context.label);
   console.log(msg);
   process.exit(1);
-}
-
-function getClusters()
-{
-  // Create a new array to merge the configured clusters list and test
-  // simulated clusters.
-  return Clusters.getClusters().then(clusters => clusters.concat(DelayCommands, LogCommands));
-}
-
-function getCommands(clusterName)
-{
-  switch (clusterName) {
-  case DelayCommands.name:
-    return Promise.resolve(DelayCommands.commands);
-  case LogCommands.name:
-    return Promise.resolve(LogCommands.commands);
-  default:
-    return Clusters.getClientCommands(clusterName);
-  }
-}
-
-function getAttributes(clusterName)
-{
-  switch (clusterName) {
-  case DelayCommands.name:
-    return Promise.resolve(DelayCommands.attributes);
-  case LogCommands.name:
-    return Promise.resolve(LogCommands.attributes);
-  default:
-    return Clusters.getServerAttributes(clusterName);
-  }
 }
 
 function assertCommandOrAttribute(context)
@@ -337,14 +406,49 @@ function assertCommandOrAttribute(context)
   });
 }
 
+const PICS = (() => {
+  let filepath = path.resolve(__dirname, basePath + certificationPath + 'PICS.yaml');
+  const data   = fs.readFileSync(filepath, { encoding : 'utf8', flag : 'r' });
+  const yaml   = YAML.parse(data);
+
+  const getAll = () => yaml.PICS;
+  const get = (id) => has(id) ? yaml.PICS.filter(pics => pics.id == id)[0] : null;
+  const has = (id) => !!(yaml.PICS.filter(pics => pics.id == id)).length;
+
+  const PICS = {
+    getAll : getAll,
+    get : get,
+    has : has,
+  };
+  return PICS;
+})();
+
 //
 // Templates
 //
-function chip_tests(list, options)
+function chip_tests_pics(options)
+{
+  return templateUtil.collectBlocks(PICS.getAll(), options, this);
+}
+
+async function chip_tests(list, options)
 {
   const items = Array.isArray(list) ? list : list.split(',');
   const names = items.map(name => name.trim());
-  const tests = names.map(item => parse(item));
+  let tests   = names.map(item => parse(item));
+  tests       = await Promise.all(tests.map(async function(test) {
+    test.tests = await Promise.all(test.tests.map(async function(item) {
+      if (item.isCommand) {
+        let command        = await assertCommandOrAttribute(item);
+        item.commandObject = command;
+      } else if (item.isAttribute) {
+        let attr             = await assertCommandOrAttribute(item);
+        item.attributeObject = attr;
+      }
+      return item;
+    }));
+    return test;
+  }));
   return templateUtil.collectBlocks(tests, options, this);
 }
 
@@ -353,27 +457,40 @@ function chip_tests_items(options)
   return templateUtil.collectBlocks(this.tests, options, this);
 }
 
-function isTestOnlyCluster(name)
+// test_cluster_command_value and test_cluster_value-equals are recursive partials using #each. At some point the |global|
+// context is lost and it fails. Make sure to attach the global context as a property of the | value |
+// that is evaluated.
+function attachGlobal(global, value)
 {
-  const testOnlyClusters = [
-    DelayCommands.name,
-    LogCommands.name,
-  ];
-  return testOnlyClusters.includes(name);
-}
-
-function chip_tests_item_response_type(options)
-{
-  const promise = assertCommandOrAttribute(this).then(item => {
-    if (item.hasSpecificResponse) {
-      return 'Clusters::' + asUpperCamelCase(this.cluster) + '::Commands::' + asUpperCamelCase(item.response.name)
-          + '::DecodableType';
+  if (Array.isArray(value)) {
+    value = value.map(v => attachGlobal(global, v));
+  } else if (value instanceof Object) {
+    for (key in value) {
+      if (key == "global") {
+        continue;
+      }
+      value[key] = attachGlobal(global, value[key]);
     }
+  } else if (value === null) {
+    value = new NullObject();
+  } else {
+    switch (typeof value) {
+    case 'number':
+      value = new Number(value);
+      break;
+    case 'string':
+      value = new String(value);
+      break;
+    case 'boolean':
+      value = new Boolean(value);
+      break;
+    default:
+      throw new Error('Unsupported value: ' + JSON.stringify(value));
+    }
+  }
 
-    return 'DataModel::NullObjectType';
-  });
-
-  return asPromise.call(this, promise, options);
+  value.global = global;
+  return value;
 }
 
 function chip_tests_item_parameters(options)
@@ -383,8 +500,8 @@ function chip_tests_item_parameters(options)
   const promise = assertCommandOrAttribute(this).then(item => {
     if (this.isAttribute && !this.isWriteAttribute) {
       if (this.isSubscribeAttribute) {
-        const minInterval = { name : 'minInterval', type : 'in16u', chipType : 'uint16_t', definedValue : this.minInterval };
-        const maxInterval = { name : 'maxInterval', type : 'in16u', chipType : 'uint16_t', definedValue : this.maxInterval };
+        const minInterval = { name : 'minInterval', type : 'int16u', chipType : 'uint16_t', definedValue : this.minInterval };
+        const maxInterval = { name : 'maxInterval', type : 'int16u', chipType : 'uint16_t', definedValue : this.maxInterval };
         return [ minInterval, maxInterval ];
       }
       return [];
@@ -396,49 +513,19 @@ function chip_tests_item_parameters(options)
 
       const expected = commandValues.find(value => value.name.toLowerCase() == commandArg.name.toLowerCase());
       if (!expected) {
+        if (commandArg.isOptional) {
+          return undefined;
+        }
         printErrorAndExit(this,
             'Missing "' + commandArg.name + '" in arguments list: \n\t* '
                 + commandValues.map(command => command.name).join('\n\t* '));
-      }
-      // test_cluster_command_value is a recursive partial using #each. At some point the |global|
-      // context is lost and it fails. Make sure to attach the global context as a property of the | value |
-      // that is evaluated.
-      function attachGlobal(global, value)
-      {
-        if (Array.isArray(value)) {
-          value = value.map(v => attachGlobal(global, v));
-        } else if (value instanceof Object) {
-          for (key in value) {
-            if (key == "global") {
-              continue;
-            }
-            value[key] = attachGlobal(global, value[key]);
-          }
-        } else {
-          switch (typeof value) {
-          case 'number':
-            value = new Number(value);
-            break;
-          case 'string':
-            value = new String(value);
-            break;
-          case 'boolean':
-            value = new Boolean(value);
-            break;
-          default:
-            throw new Error('Unsupported value: ' + JSON.stringify(value));
-          }
-        }
-
-        value.global = global;
-        return value;
       }
       commandArg.definedValue = attachGlobal(this.global, expected.value);
 
       return commandArg;
     });
 
-    return commands;
+    return commands.filter(item => item !== undefined);
   });
 
   return asBlocks.call(this, promise, options);
@@ -449,6 +536,9 @@ function chip_tests_item_response_parameters(options)
   const responseValues = this.response.values.slice();
 
   const promise = assertCommandOrAttribute(this).then(item => {
+    if (this.isWriteAttribute) {
+      return [];
+    }
     const responseArgs = item.response.arguments;
 
     const responses = responseArgs.map(responseArg => {
@@ -459,12 +549,16 @@ function chip_tests_item_response_parameters(options)
         const expected = responseValues.splice(expectedIndex, 1)[0];
         if ('value' in expected) {
           responseArg.hasExpectedValue = true;
-          responseArg.expectedValue    = expected.value;
+          responseArg.expectedValue    = attachGlobal(this.global, expected.value);
         }
 
         if ('constraints' in expected) {
           responseArg.hasExpectedConstraints = true;
           responseArg.expectedConstraints    = expected.constraints;
+        }
+
+        if ('saveAs' in expected) {
+          responseArg.saveAs = expected.saveAs;
         }
       }
 
@@ -484,12 +578,39 @@ function chip_tests_item_response_parameters(options)
   return asBlocks.call(this, promise, options);
 }
 
+function isLiteralNull(value, options)
+{
+  // Literal null might look different depending on whether it went through
+  // attachGlobal or not.
+  return (value === null) || (value instanceof NullObject);
+}
+
+function expectedValueHasProp(value, name)
+{
+  return name in value;
+}
+
+function octetStringEscapedForCLiteral(value)
+{
+  return value.replace(/\p{Control}/gu, ch => {
+    let code = ch.charCodeAt(0);
+    code     = code.toString();
+    if (code.length == 1) {
+      code = "0" + code;
+    }
+    return "\\x" + code;
+  });
+}
+
 //
 // Module exports
 //
 exports.chip_tests                          = chip_tests;
 exports.chip_tests_items                    = chip_tests_items;
 exports.chip_tests_item_parameters          = chip_tests_item_parameters;
-exports.chip_tests_item_response_type       = chip_tests_item_response_type;
 exports.chip_tests_item_response_parameters = chip_tests_item_response_parameters;
+exports.chip_tests_pics                     = chip_tests_pics;
 exports.isTestOnlyCluster                   = isTestOnlyCluster;
+exports.isLiteralNull                       = isLiteralNull;
+exports.expectedValueHasProp                = expectedValueHasProp;
+exports.octetStringEscapedForCLiteral       = octetStringEscapedForCLiteral;

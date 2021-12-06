@@ -37,7 +37,7 @@ void ChannelContext::Start(const ChannelBuilder & builder)
 
 ExchangeContext * ChannelContext::NewExchange(ExchangeDelegate * delegate)
 {
-    assert(GetState() == ChannelState::kReady);
+    VerifyOrDie(GetState() == ChannelState::kReady);
     return mExchangeManager->NewContext(GetReadyVars().mSession, delegate);
 }
 
@@ -263,7 +263,7 @@ void ChannelContext::EnterCasePairingState()
     Transport::PeerAddress addr;
     addr.SetTransportType(Transport::Type::kUdp).SetIPAddress(prepare.mAddress);
 
-    auto session = mExchangeManager->GetSessionManager()->CreateUnauthenticatedSession(addr);
+    auto session = mExchangeManager->GetSessionManager()->CreateUnauthenticatedSession(addr, gDefaultMRPConfig);
     if (!session.HasValue())
     {
         ExitCasePairingState();

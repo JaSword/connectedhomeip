@@ -39,7 +39,7 @@ jobs:
               uses: actions/setup-node@v1
               with:
                 node-version: '14.x'
-            - name: Use Java 
+            - name: Use Java
               uses: actions/setup-java@v2
               with:
                 distribution: 'zulu'
@@ -56,10 +56,14 @@ jobs:
                 npm rebuild canvas --update-binary
                 npm run build-spa
             - name: Generate all
-              timeout-minutes: 5
+              timeout-minutes: 15
               run: scripts/tools/zap_regen_all.py
             - name: Check for uncommited changes
               run: |
                 git add .
-                git diff-index HEAD --
-                git diff-index --quiet HEAD --
+                # Show the full diff
+                git diff-index -p HEAD --
+                # Also show just the files that are different, to make it easy
+                # to tell at a glance what might be going on.  And throw in
+                # --exit-code to make this job fail if there is a difference.
+                git diff-index --exit-code HEAD --

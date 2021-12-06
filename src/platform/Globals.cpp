@@ -25,14 +25,59 @@
 namespace chip {
 namespace DeviceLayer {
 
-chip::Inet::InetLayer InetLayer;
+chip::Inet::InetLayer & InetLayer()
+{
+    static chip::Inet::InetLayer gInetLayer;
+    return gInetLayer;
+}
+
+chip::Inet::EndPointManager<Inet::UDPEndPoint> * UDPEndPointManager()
+{
+    static chip::Inet::UDPEndPointManagerImpl gUDPEndPointManager;
+    return &gUDPEndPointManager;
+}
+
+chip::Inet::EndPointManager<Inet::TCPEndPoint> * TCPEndPointManager()
+{
+#if INET_CONFIG_ENABLE_TCP_ENDPOINT
+    static chip::Inet::TCPEndPointManagerImpl gTCPEndPointManager;
+    return &gTCPEndPointManager;
+#else  // INET_CONFIG_ENABLE_TCP_ENDPOINT
+    return nullptr;
+#endif // INET_CONFIG_ENABLE_TCP_ENDPOINT
+}
+
+chip::System::LayerImpl * gMockedSystemLayer = nullptr;
+
+void SetSystemLayerForTesting(System::LayerImpl * layer)
+{
+    gMockedSystemLayer = layer;
+}
+
+chip::System::LayerImpl & SystemLayerImpl()
+{
+    if (gMockedSystemLayer != nullptr)
+        return *gMockedSystemLayer;
+
+    static chip::System::LayerImpl gSystemLayerImpl;
+    return gSystemLayerImpl;
+}
+
+chip::System::Layer & SystemLayer()
+{
+    return SystemLayerImpl();
+}
+
+#if CHIP_SYSTEM_CONFIG_USE_SOCKETS
+chip::System::LayerSockets & SystemLayerSockets()
+{
+    return SystemLayerImpl();
+}
+#endif // CHIP_SYSTEM_CONFIG_USE_SOCKETS
 
 namespace Internal {
-
-chip::System::Layer * gSystemLayer = nullptr;
-chip::System::LayerImpl gSystemLayerImpl;
 const char * const TAG = "CHIP[DL]";
-
 } // namespace Internal
+
 } // namespace DeviceLayer
 } // namespace chip

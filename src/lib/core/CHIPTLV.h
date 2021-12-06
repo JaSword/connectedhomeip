@@ -33,6 +33,7 @@
 
 #include <lib/support/BitFlags.h>
 #include <lib/support/DLLUtil.h>
+#include <lib/support/ScopedBuffer.h>
 #include <lib/support/Span.h>
 #include <lib/support/TypeTraits.h>
 
@@ -467,6 +468,26 @@ public:
     CHIP_ERROR Get(ByteSpan & v);
 
     /**
+     * Get the value of the current element as a FixedByteSpan
+     *
+     * @param[out]  v                       Receives the value associated with current TLV element.
+     *
+     * @retval #CHIP_NO_ERROR              If the method succeeded.
+     * @retval #CHIP_ERROR_WRONG_TLV_TYPE  If the current element is not a TLV bytes array, or
+     *                                      the reader is not positioned on an element.
+     *
+     */
+    template <size_t N>
+    CHIP_ERROR Get(FixedByteSpan<N> & v)
+    {
+        const uint8_t * val;
+        ReturnErrorOnFailure(GetDataPtr(val));
+        VerifyOrReturnError(GetLength() == N, CHIP_ERROR_UNEXPECTED_TLV_ELEMENT);
+        v = FixedByteSpan<N>(val);
+        return CHIP_NO_ERROR;
+    }
+
+    /**
      * Get the value of the current element as a CharSpan
      *
      * @param[out]  v                       Receives the value associated with current TLV element.
@@ -863,6 +884,15 @@ public:
     CHIP_ERROR FindElementWithTag(Tag tagInApiForm, TLVReader & destReader) const;
 
     /**
+     * Count how many elements remain in the currently-open container.  Will
+     * fail with CHIP_ERROR_INCORRECT_STATE if not currently in a container.
+     *
+     * @param[out] size On success, set to the number of items following the
+     *                  current reader position in the container.
+     */
+    CHIP_ERROR CountRemainingInContainer(size_t * size) const;
+
+    /**
      * The profile id to be used for profile tags encoded in implicit form.
      *
      * When the reader encounters a profile-specific tag that has been encoded in implicit form, it
@@ -911,6 +941,43 @@ protected:
     CHIP_ERROR ReadData(uint8_t * buf, uint32_t len);
     CHIP_ERROR GetElementHeadLength(uint8_t & elemHeadBytes) const;
     TLVElementType ElementType() const;
+};
+
+/*
+ * A TLVReader that is backed by a scoped memory buffer that is owned by the reader
+ */
+class ScopedBufferTLVReader : public TLVReader
+{
+public:
+    /*
+     * Construct and initialize the reader by taking ownership of the provided scoped buffer.
+     */
+    ScopedBufferTLVReader(Platform::ScopedMemoryBuffer<uint8_t> && buffer, size_t dataLen) { Init(std::move(buffer), dataLen); }
+
+    ScopedBufferTLVReader() {}
+
+    /*
+     * Initialize the reader by taking ownership of a passed in scoped buffer.
+     */
+    void Init(Platform::ScopedMemoryBuffer<uint8_t> && buffer, size_t dataLen)
+    {
+        mBuffer = std::move(buffer);
+        TLVReader::Init(mBuffer.Get(), dataLen);
+    }
+
+    /*
+     * Take back the buffer owned by the reader and transfer its ownership to
+     * the provided buffer reference. This also re-initializes the reader with
+     * a null buffer to prevent further use of the reader.
+     */
+    void TakeBuffer(Platform::ScopedMemoryBuffer<uint8_t> & buffer)
+    {
+        buffer = std::move(mBuffer);
+        TLVReader::Init(nullptr, 0);
+    }
+
+private:
+    Platform::ScopedMemoryBuffer<uint8_t> mBuffer;
 };
 
 /**
@@ -1060,6 +1127,34 @@ public:
      *                              FinalizeBuffer() function.
      */
     CHIP_ERROR Finalize();
+
+    /**
+     * Reserve some buffer for encoding future fields.
+     *
+     * @retval #CHIP_NO_ERROR        Successfully reserved required buffer size.
+     * @retval #CHIP_ERROR_NO_MEMORY The reserved buffer size cannot fits into the remaining buffer size.
+     */
+    CHIP_ERROR ReserveBuffer(uint32_t aBufferSize)
+    {
+        VerifyOrReturnError(mRemainingLen >= aBufferSize, CHIP_ERROR_NO_MEMORY);
+        mReservedSize += aBufferSize;
+        mRemainingLen -= aBufferSize;
+        return CHIP_NO_ERROR;
+    }
+
+    /**
+     * Release previously reserved buffer.
+     *
+     * @retval #CHIP_NO_ERROR        Successfully released reserved buffer size.
+     * @retval #CHIP_ERROR_NO_MEMORY The released buffer is larger than previously reserved buffer size.
+     */
+    CHIP_ERROR UnreserveBuffer(uint32_t aBufferSize)
+    {
+        VerifyOrReturnError(mReservedSize >= aBufferSize, CHIP_ERROR_NO_MEMORY);
+        mReservedSize -= aBufferSize;
+        mRemainingLen += aBufferSize;
+        return CHIP_NO_ERROR;
+    }
 
     /**
      * Encodes a TLV signed integer value.
@@ -2091,6 +2186,7 @@ protected:
     uint32_t mRemainingLen;
     uint32_t mLenWritten;
     uint32_t mMaxLen;
+    uint32_t mReservedSize;
     TLVType mContainerType;
 
 private:
@@ -2128,6 +2224,38 @@ protected:
     CHIP_ERROR WriteElementHead(TLVElementType elemType, Tag tag, uint64_t lenOrVal);
     CHIP_ERROR WriteElementWithData(TLVType type, Tag tag, const uint8_t * data, uint32_t dataLen);
     CHIP_ERROR WriteData(const uint8_t * p, uint32_t len);
+};
+
+/*
+ * A TLVWriter that is backed by a scoped memory buffer that is owned by the writer.
+ */
+class ScopedBufferTLVWriter : public TLVWriter
+{
+public:
+    /*
+     * Construct and initialize the writer by taking ownership of the provided scoped buffer.
+     */
+    ScopedBufferTLVWriter(Platform::ScopedMemoryBuffer<uint8_t> && buffer, size_t dataLen)
+    {
+        mBuffer = std::move(buffer);
+        Init(mBuffer.Get(), dataLen);
+    }
+
+    /*
+     * Finalize the writer and take back the buffer owned by the writer. This transfers its
+     * ownership to the provided buffer reference. This also re-initializes the writer with
+     * a null buffer to prevent further inadvertent use of the writer.
+     */
+    CHIP_ERROR Finalize(Platform::ScopedMemoryBuffer<uint8_t> & buffer)
+    {
+        ReturnErrorOnFailure(TLVWriter::Finalize());
+        buffer = std::move(mBuffer);
+        Init(nullptr, 0);
+        return CHIP_NO_ERROR;
+    }
+
+private:
+    Platform::ScopedMemoryBuffer<uint8_t> mBuffer;
 };
 
 /**
@@ -2598,6 +2726,21 @@ public:
      */
     virtual CHIP_ERROR FinalizeBuffer(TLVWriter & writer, uint8_t * bufStart, uint32_t bufLen) = 0;
 };
+
+constexpr size_t EstimateStructOverhead()
+{
+    // The struct itself has a control byte and an end-of-struct marker.
+    return 2;
+}
+
+template <typename... FieldSizes>
+constexpr size_t EstimateStructOverhead(size_t firstFieldSize, FieldSizes... otherFields)
+{
+    // Estimate 4 bytes of overhead per field.  This can happen for a large
+    // octet string field: 1 byte control, 1 byte context tag, 2 bytes
+    // length.
+    return firstFieldSize + 4u + EstimateStructOverhead(otherFields...);
+}
 
 } // namespace TLV
 } // namespace chip

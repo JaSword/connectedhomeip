@@ -28,8 +28,9 @@
 #include <utility>
 
 #include <inet/IPAddress.h>
-#include <inet/IPEndPointBasis.h>
+#include <inet/IPPacketInfo.h>
 #include <inet/InetInterface.h>
+#include <inet/UDPEndPoint.h>
 #include <lib/core/CHIPCore.h>
 #include <transport/raw/Base.h>
 
@@ -40,11 +41,11 @@ namespace Transport {
 class UdpListenParameters
 {
 public:
-    explicit UdpListenParameters(Inet::InetLayer * layer) : mLayer(layer) {}
+    explicit UdpListenParameters(Inet::InetLayer * inetLayer) : mEndPointManager(inetLayer->GetUDPEndPointManager()) {}
     UdpListenParameters(const UdpListenParameters &) = default;
     UdpListenParameters(UdpListenParameters &&)      = default;
 
-    Inet::InetLayer * GetInetLayer() { return mLayer; }
+    Inet::EndPointManager<Inet::UDPEndPoint> * GetEndPointManager() { return mEndPointManager; }
 
     Inet::IPAddressType GetAddressType() const { return mAddressType; }
     UdpListenParameters & SetAddressType(Inet::IPAddressType type)
@@ -71,10 +72,10 @@ public:
     }
 
 private:
-    Inet::InetLayer * mLayer         = nullptr;                    ///< Associated inet layer
+    Inet::EndPointManager<Inet::UDPEndPoint> * mEndPointManager;   ///< Associated endpoint factory
     Inet::IPAddressType mAddressType = Inet::IPAddressType::kIPv6; ///< type of listening socket
     uint16_t mListenPort             = CHIP_PORT;                  ///< UDP listen port
-    Inet::InterfaceId mInterfaceId   = INET_NULL_INTERFACEID;      ///< Interface to listen on
+    Inet::InterfaceId mInterfaceId   = Inet::InterfaceId::Null();  ///< Interface to listen on
 };
 
 /** Implements a transport using UDP. */
@@ -122,7 +123,7 @@ public:
 
 private:
     // UDP message receive handler.
-    static void OnUdpReceive(Inet::IPEndPointBasis * endPoint, System::PacketBufferHandle && buffer,
+    static void OnUdpReceive(Inet::UDPEndPoint * endPoint, System::PacketBufferHandle && buffer,
                              const Inet::IPPacketInfo * pktInfo);
 
     Inet::UDPEndPoint * mUDPEndPoint     = nullptr;                       ///< UDP socket used by the transport

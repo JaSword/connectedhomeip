@@ -29,7 +29,6 @@
 #include <lib/support/CodeUtils.h>
 #include <lib/support/UnitTestRegistration.h>
 #include <system/SystemLayer.h>
-#include <system/SystemObject.h>
 #include <transport/TransportMgr.h>
 #include <transport/raw/TCP.h>
 
@@ -142,7 +141,7 @@ public:
 
         NL_TEST_ASSERT(mSuite, err == CHIP_NO_ERROR);
 
-        mContext.DriveIOUntil(5000 /* ms */, [this]() { return mReceiveHandlerCallCount != 0; });
+        mContext.DriveIOUntil(chip::System::Clock::Seconds16(5), [this]() { return mReceiveHandlerCallCount != 0; });
         NL_TEST_ASSERT(mSuite, mReceiveHandlerCallCount == 1);
 
         SetCallback(nullptr);
@@ -152,7 +151,7 @@ public:
     {
         // Disconnect and wait for seeing peer close
         tcp.Disconnect(Transport::PeerAddress::TCP(addr));
-        mContext.DriveIOUntil(5000 /* ms */, [&tcp]() { return !tcp.HasActiveConnections(); });
+        mContext.DriveIOUntil(chip::System::Clock::Seconds16(5), [&tcp]() { return !tcp.HasActiveConnections(); });
     }
 
     int mReceiveHandlerCallCount = 0;
@@ -475,7 +474,7 @@ static nlTestSuite sSuite =
  */
 static int Initialize(void * aContext)
 {
-    CHIP_ERROR err = reinterpret_cast<TestContext *>(aContext)->Init(&sSuite);
+    CHIP_ERROR err = reinterpret_cast<TestContext *>(aContext)->Init();
     return (err == CHIP_NO_ERROR) ? SUCCESS : FAILURE;
 }
 

@@ -76,6 +76,8 @@ public:
 
     bool IsEncryptionRequired() const { return mDispatch->IsEncryptionRequired(); }
 
+    bool IsGroupExchangeContext() const { return (mSession.HasValue() && mSession.Value().IsGroupSession()); }
+
     /**
      *  Send a CHIP message on this exchange.
      *
@@ -149,8 +151,8 @@ public:
 
     ExchangeMessageDispatch * GetMessageDispatch() { return mDispatch; }
 
-    SessionHandle GetSecureSession() { return mSecureSession.Value(); }
-    bool HasSecureSession() const { return mSecureSession.HasValue(); }
+    SessionHandle GetSessionHandle() const { return mSession.Value(); }
+    bool HasSessionHandle() const { return mSession.HasValue(); }
 
     uint16_t GetExchangeId() const { return mExchangeId; }
 
@@ -164,6 +166,18 @@ public:
 
     void SetResponseTimeout(Timeout timeout);
 
+    // TODO: move following 5 functions into SessionHandle once we can access session vars w/o using a SessionManager
+    /*
+     * Get the overall acknowledge timeout period for the underneath transport(MRP+UDP/TCP)
+     */
+    System::Clock::Milliseconds32 GetAckTimeout();
+
+    bool IsUDPTransport();
+    bool IsTCPTransport();
+    bool IsBLETransport();
+    // Helper function for easily accessing MRP config
+    const ReliableMessageProtocolConfig & GetMRPConfig() const;
+
 private:
     Timeout mResponseTimeout{ 0 }; // Maximum time to wait for response (in milliseconds); 0 disables response timeout.
     ExchangeDelegate * mDelegate   = nullptr;
@@ -171,8 +185,8 @@ private:
 
     ExchangeMessageDispatch * mDispatch = nullptr;
 
-    Optional<SessionHandle> mSecureSession; // The connection state
-    uint16_t mExchangeId;                   // Assigned exchange ID.
+    Optional<SessionHandle> mSession; // The connection state
+    uint16_t mExchangeId;             // Assigned exchange ID.
 
     /**
      *  Determine whether a response is currently expected for a message that was sent over
@@ -237,6 +251,18 @@ private:
      * re-evaluate out state to see whether we should still be open.
      */
     void MessageHandled();
+
+    /**
+     * Updates Sleepy End Device polling interval in the following way:
+     * - does nothing for exchanges over Bluetooth LE
+     * - set IDLE polling mode if all conditions are met:
+     *   - device doesn't expect getting response nor sending message
+     *   - there is no other active exchange than the current one
+     * - set ACTIVE polling mode if any of the conditions is met:
+     *   - device expects getting response or sending message
+     *   - there is another active exchange
+     */
+    void UpdateSEDPollingMode();
 };
 
 } // namespace Messaging

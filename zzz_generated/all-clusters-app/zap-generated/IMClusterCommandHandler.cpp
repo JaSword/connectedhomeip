@@ -436,20 +436,22 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
     {
         switch (aCommandPath.mCommandId)
         {
-        case Commands::ClearAllPins::Id: {
-        Commands::ClearAllPins::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearAllPinsCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearAllPINCodes::Id: {
+            Commands::ClearAllPINCodes::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearAllPINCodesCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::ClearAllRfids::Id: {
-        Commands::ClearAllRfids::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearAllRfidsCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearAllRFIDCodes::Id: {
+            Commands::ClearAllRFIDCodes::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearAllRFIDCodesCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::ClearHolidaySchedule::Id: {
@@ -460,36 +462,40 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
-        case Commands::ClearPin::Id: {
-        Commands::ClearPin::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearPinCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearPINCode::Id: {
+            Commands::ClearPINCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearPINCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::ClearRfid::Id: {
-        Commands::ClearRfid::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearRfidCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearRFIDCode::Id: {
+            Commands::ClearRFIDCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearRFIDCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::ClearWeekdaySchedule::Id: {
-        Commands::ClearWeekdaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearWeekdayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearWeekDaySchedule::Id: {
+            Commands::ClearWeekDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearWeekDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::ClearYeardaySchedule::Id: {
-        Commands::ClearYeardaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterClearYeardayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::ClearYearDaySchedule::Id: {
+            Commands::ClearYearDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterClearYearDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::GetHolidaySchedule::Id: {
@@ -508,20 +514,22 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
-        case Commands::GetPin::Id: {
-        Commands::GetPin::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterGetPinCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::GetPINCode::Id: {
+            Commands::GetPINCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterGetPINCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::GetRfid::Id: {
-        Commands::GetRfid::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterGetRfidCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::GetRFIDCode::Id: {
+            Commands::GetRFIDCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterGetRFIDCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::GetUserType::Id: {
@@ -532,20 +540,22 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
-        case Commands::GetWeekdaySchedule::Id: {
-        Commands::GetWeekdaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterGetWeekdayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::GetWeekDaySchedule::Id: {
+            Commands::GetWeekDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterGetWeekDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::GetYeardaySchedule::Id: {
-        Commands::GetYeardaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterGetYeardayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::GetYearDaySchedule::Id: {
+            Commands::GetYearDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterGetYearDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::LockDoor::Id: {
@@ -564,20 +574,22 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
-        case Commands::SetPin::Id: {
-        Commands::SetPin::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterSetPinCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::SetPINCode::Id: {
+            Commands::SetPINCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterSetPINCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::SetRfid::Id: {
-        Commands::SetRfid::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterSetRfidCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::SetRFIDCode::Id: {
+            Commands::SetRFIDCode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterSetRFIDCodeCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::SetUserType::Id: {
@@ -588,20 +600,22 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
-        case Commands::SetWeekdaySchedule::Id: {
-        Commands::SetWeekdaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterSetWeekdayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::SetWeekDaySchedule::Id: {
+            Commands::SetWeekDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterSetWeekDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
-        case Commands::SetYeardaySchedule::Id: {
-        Commands::SetYeardaySchedule::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfDoorLockClusterSetYeardayScheduleCallback(apCommandObj, aCommandPath, commandData);
-        }
+        case Commands::SetYearDaySchedule::Id: {
+            Commands::SetYearDaySchedule::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfDoorLockClusterSetYearDayScheduleCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::UnlockDoor::Id: {
@@ -874,6 +888,15 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
+        case Commands::TriggerEffect::Id: {
+            Commands::TriggerEffect::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfIdentifyClusterTriggerEffectCallback(apCommandObj, aCommandPath, commandData);
+            }
+            break;
+        }
         default: {
             // Unrecognized command ID, error status will apply.
             ReportCommandUnsupported(apCommandObj, aCommandPath);
@@ -1023,6 +1046,45 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
 
 }
 
+namespace ModeSelect {
+
+void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandPath & aCommandPath, TLV::TLVReader & aDataTlv)
+{
+    // We are using TLVUnpackError and TLVError here since both of them can be CHIP_END_OF_TLV
+    // When TLVError is CHIP_END_OF_TLV, it means we have iterated all of the items, which is not a real error.
+    // Any error value TLVUnpackError means we have received an illegal value.
+    // The following variables are used for all commands to save code size.
+    CHIP_ERROR TLVError = CHIP_NO_ERROR;
+    bool wasHandled     = false;
+    {
+        switch (aCommandPath.mCommandId)
+        {
+        case Commands::ChangeToMode::Id: {
+            Commands::ChangeToMode::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfModeSelectClusterChangeToModeCallback(apCommandObj, aCommandPath, commandData);
+            }
+            break;
+        }
+        default: {
+            // Unrecognized command ID, error status will apply.
+            ReportCommandUnsupported(apCommandObj, aCommandPath);
+            return;
+        }
+        }
+    }
+
+    if (CHIP_NO_ERROR != TLVError || !wasHandled)
+    {
+        apCommandObj->AddStatus(aCommandPath, Protocols::InteractionModel::Status::InvalidCommand);
+        ChipLogProgress(Zcl, "Failed to dispatch command, TLVError=%" CHIP_ERROR_FORMAT, TLVError.Format());
+    }
+}
+
+} // namespace ModeSelect
+
 namespace NetworkCommissioning {
 
 void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandPath & aCommandPath, TLV::TLVReader & aDataTlv)
@@ -1065,14 +1127,6 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         TLVError = DataModel::Decode(aDataTlv, commandData);
         if (TLVError == CHIP_NO_ERROR) {
         wasHandled = emberAfNetworkCommissioningClusterEnableNetworkCallback(apCommandObj, aCommandPath, commandData);
-        }
-            break;
-        }
-        case Commands::GetLastNetworkCommissioningResult::Id: {
-        Commands::GetLastNetworkCommissioningResult::DecodableType commandData;
-        TLVError = DataModel::Decode(aDataTlv, commandData);
-        if (TLVError == CHIP_NO_ERROR) {
-        wasHandled = emberAfNetworkCommissioningClusterGetLastNetworkCommissioningResultCallback(apCommandObj, aCommandPath, commandData);
         }
             break;
         }
@@ -1472,6 +1526,15 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
     {
         switch (aCommandPath.mCommandId)
         {
+        case Commands::SimpleStructEchoRequest::Id: {
+            Commands::SimpleStructEchoRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfTestClusterClusterSimpleStructEchoRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
+            break;
+        }
         case Commands::Test::Id: {
         Commands::Test::DecodableType commandData;
         TLVError = DataModel::Decode(aDataTlv, commandData);
@@ -1486,6 +1549,15 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         if (TLVError == CHIP_NO_ERROR) {
         wasHandled = emberAfTestClusterClusterTestAddArgumentsCallback(apCommandObj, aCommandPath, commandData);
         }
+            break;
+        }
+        case Commands::TestEnumsRequest::Id: {
+            Commands::TestEnumsRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfTestClusterClusterTestEnumsRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::TestListInt8UArgumentRequest::Id: {
@@ -1544,6 +1616,25 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         }
             break;
         }
+        case Commands::TestNullableOptionalRequest::Id: {
+            Commands::TestNullableOptionalRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfTestClusterClusterTestNullableOptionalRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
+            break;
+        }
+        case Commands::TestSimpleOptionalArgumentRequest::Id: {
+            Commands::TestSimpleOptionalArgumentRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled =
+                    emberAfTestClusterClusterTestSimpleOptionalArgumentRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
+            break;
+        }
         case Commands::TestSpecific::Id: {
         Commands::TestSpecific::DecodableType commandData;
         TLVError = DataModel::Decode(aDataTlv, commandData);
@@ -1558,6 +1649,20 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         if (TLVError == CHIP_NO_ERROR) {
         wasHandled = emberAfTestClusterClusterTestStructArgumentRequestCallback(apCommandObj, aCommandPath, commandData);
         }
+            break;
+        }
+        case Commands::TimedInvokeRequest::Id: {
+            if (!apCommandObj->IsTimedInvoke())
+            {
+                apCommandObj->AddStatus(aCommandPath, Protocols::InteractionModel::Status::NeedsTimedInteraction);
+                return;
+            }
+            Commands::TimedInvokeRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfTestClusterClusterTimedInvokeRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         default: {
@@ -1757,6 +1862,9 @@ void DispatchSingleClusterCommand(const ConcreteCommandPath & aCommandPath, TLV:
         break;
     case Clusters::LowPower::Id:
         Clusters::LowPower::DispatchServerCommand(apCommandObj, aCommandPath, aReader);
+        break;
+    case Clusters::ModeSelect::Id:
+        Clusters::ModeSelect::DispatchServerCommand(apCommandObj, aCommandPath, aReader);
         break;
     case Clusters::NetworkCommissioning::Id:
         Clusters::NetworkCommissioning::DispatchServerCommand(apCommandObj, aCommandPath, aReader);

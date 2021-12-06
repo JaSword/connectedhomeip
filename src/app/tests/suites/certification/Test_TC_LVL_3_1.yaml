@@ -19,6 +19,10 @@ config:
     endpoint: 1
 
 tests:
+    - label: "Wait for the commissioned device to be retrieved"
+      cluster: "DelayCommands"
+      command: "WaitForCommissionee"
+
     - label: "reads current level attribute from DUT"
       command: "readAttribute"
       attribute: "current level"
@@ -44,13 +48,13 @@ tests:
               - name: "optionOverride"
                 value: 1
 
-    - label: "Wait 2500ms"
+    - label: "Wait 3000ms"
       cluster: "DelayCommands"
       command: "WaitForMs"
       arguments:
           values:
               - name: "ms"
-                value: 2500
+                value: 3000
 
     - label: "reads current level attribute from DUT"
       command: "readAttribute"
@@ -77,13 +81,13 @@ tests:
               - name: "optionOverride"
                 value: 1
 
-    - label: "Wait 2500ms"
+    - label: "Wait 3000ms"
       cluster: "DelayCommands"
       command: "WaitForMs"
       arguments:
           values:
               - name: "ms"
-                value: 2500
+                value: 3000
 
     - label: "reads current level attribute from DUT"
       command: "readAttribute"
@@ -96,8 +100,6 @@ tests:
       attribute: "default move rate"
       arguments:
           value: 20
-      response:
-          error: 0
 
     - label: "reads default move rate attribute from DUT"
       command: "readAttribute"
@@ -118,13 +120,13 @@ tests:
               - name: "optionOverride"
                 value: 1
 
-    - label: "Wait 10ms"
+    - label: "Wait 100ms"
       cluster: "DelayCommands"
       command: "WaitForMs"
       arguments:
           values:
               - name: "ms"
-                value: 10
+                value: 100
 
     - label: "reads current level attribute from DUT"
       command: "readAttribute"

@@ -58,7 +58,7 @@ public:
     static const Key kConfigKey_MfrDeviceCert;
     static const Key kConfigKey_MfrDeviceICACerts;
     static const Key kConfigKey_MfrDevicePrivateKey;
-    static const Key kConfigKey_ProductRevision;
+    static const Key kConfigKey_HardwareVersion;
     static const Key kConfigKey_ManufacturingDate;
     static const Key kConfigKey_SetupPinCode;
     static const Key kConfigKey_FabricId;
@@ -97,12 +97,12 @@ public:
 
     static void RunConfigUnitTest();
 
+    static void InitializeWithObject(jobject managerObject);
+
 protected:
     // NVS Namespace helper functions.
     static CHIP_ERROR EnsureNamespace(const char * ns);
     static CHIP_ERROR ClearNamespace(const char * ns);
-
-    static void InitializeWithObject(jobject managerObject);
 };
 
 struct AndroidConfig::Key

@@ -43,10 +43,8 @@ bool emberAfNetworkCommissioningClusterAddThreadNetworkCallback(app::CommandHand
     auto & breadcrumb         = commandData.breadcrumb;
     auto & timeoutMs          = commandData.timeoutMs;
 
-    EmberAfNetworkCommissioningError err = app::Clusters::NetworkCommissioning::OnAddThreadNetworkCommandCallbackInternal(
-        nullptr, emberAfCurrentEndpoint(), operationalDataset, breadcrumb, timeoutMs);
-    emberAfSendImmediateDefaultResponse(err == EMBER_ZCL_NETWORK_COMMISSIONING_ERROR_SUCCESS ? EMBER_ZCL_STATUS_SUCCESS
-                                                                                             : EMBER_ZCL_STATUS_FAILURE);
+    app::Clusters::NetworkCommissioning::OnAddThreadNetworkCommandCallbackInternal(commandObj, commandPath, operationalDataset,
+                                                                                   breadcrumb, timeoutMs);
     return true;
 }
 
@@ -59,10 +57,8 @@ bool emberAfNetworkCommissioningClusterAddWiFiNetworkCallback(app::CommandHandle
     auto & breadcrumb  = commandData.breadcrumb;
     auto & timeoutMs   = commandData.timeoutMs;
 
-    EmberAfNetworkCommissioningError err = app::Clusters::NetworkCommissioning::OnAddWiFiNetworkCommandCallbackInternal(
-        nullptr, emberAfCurrentEndpoint(), ssid, credentials, breadcrumb, timeoutMs);
-    emberAfSendImmediateDefaultResponse(err == EMBER_ZCL_NETWORK_COMMISSIONING_ERROR_SUCCESS ? EMBER_ZCL_STATUS_SUCCESS
-                                                                                             : EMBER_ZCL_STATUS_FAILURE);
+    app::Clusters::NetworkCommissioning::OnAddWiFiNetworkCommandCallbackInternal(commandObj, commandPath, ssid, credentials,
+                                                                                 breadcrumb, timeoutMs);
     return true;
 }
 
@@ -74,10 +70,8 @@ bool emberAfNetworkCommissioningClusterEnableNetworkCallback(app::CommandHandler
     auto & breadcrumb = commandData.breadcrumb;
     auto & timeoutMs  = commandData.timeoutMs;
 
-    EmberAfNetworkCommissioningError err = app::Clusters::NetworkCommissioning::OnEnableNetworkCommandCallbackInternal(
-        nullptr, emberAfCurrentEndpoint(), networkID, breadcrumb, timeoutMs);
-    emberAfSendImmediateDefaultResponse(err == EMBER_ZCL_NETWORK_COMMISSIONING_ERROR_SUCCESS ? EMBER_ZCL_STATUS_SUCCESS
-                                                                                             : EMBER_ZCL_STATUS_FAILURE);
+    app::Clusters::NetworkCommissioning::OnEnableNetworkCommandCallbackInternal(commandObj, commandPath, networkID, breadcrumb,
+                                                                                timeoutMs);
     return true;
 }
 
@@ -87,13 +81,6 @@ bool emberAfNetworkCommissioningClusterEnableNetworkCallback(app::CommandHandler
 bool emberAfNetworkCommissioningClusterDisableNetworkCallback(app::CommandHandler * commandObj,
                                                               const app::ConcreteCommandPath & commandPath,
                                                               const Commands::DisableNetwork::DecodableType & commandData)
-{
-    return false;
-}
-
-bool emberAfNetworkCommissioningClusterGetLastNetworkCommissioningResultCallback(
-    app::CommandHandler * commandObj, const app::ConcreteCommandPath & commandPath,
-    const Commands::GetLastNetworkCommissioningResult::DecodableType & commandData)
 {
     return false;
 }
@@ -124,3 +111,5 @@ bool emberAfNetworkCommissioningClusterUpdateWiFiNetworkCallback(app::CommandHan
 {
     return false;
 }
+
+void MatterNetworkCommissioningPluginServerInitCallback() {}

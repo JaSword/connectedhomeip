@@ -72,7 +72,6 @@ Server Server::sServer;
 
 CHIP_ERROR Server::Init(AppDelegate * delegate, uint16_t secureServicePort, uint16_t unsecureServicePort)
 {
-    mAppDelegate          = delegate;
     mSecuredServicePort   = secureServicePort;
     mUnsecuredServicePort = unsecureServicePort;
 
@@ -94,13 +93,18 @@ CHIP_ERROR Server::Init(AppDelegate * delegate, uint16_t secureServicePort, uint
     err = mFabrics.Init(&mServerStorage);
     SuccessOrExit(err);
 
+    // Group data provider must be initialized after mServerStorage
+    err = mGroupsProvider.Init();
+    SuccessOrExit(err);
+    SetGroupDataProvider(&mGroupsProvider);
+
     // Init transport before operations with secure session mgr.
     err = mTransports.Init(
-        UdpListenParameters(&DeviceLayer::InetLayer).SetAddressType(IPAddressType::kIPv6).SetListenPort(mSecuredServicePort)
+        UdpListenParameters(&DeviceLayer::InetLayer()).SetAddressType(IPAddressType::kIPv6).SetListenPort(mSecuredServicePort)
 
 #if INET_CONFIG_ENABLE_IPV4
             ,
-        UdpListenParameters(&DeviceLayer::InetLayer).SetAddressType(IPAddressType::kIPv4).SetListenPort(mSecuredServicePort)
+        UdpListenParameters(&DeviceLayer::InetLayer()).SetAddressType(IPAddressType::kIPv4).SetListenPort(mSecuredServicePort)
 #endif
 #if CONFIG_NETWORK_LAYER_BLE
             ,
@@ -156,15 +160,11 @@ CHIP_ERROR Server::Init(AppDelegate * delegate, uint16_t secureServicePort, uint
 
     // TODO @bzbarsky-apple @cecille Move to examples
     // ESP32 and Mbed OS examples have a custom logic for enabling DNS-SD
-#if CHIP_DEVICE_CONFIG_ENABLE_DNSSD && !CHIP_DEVICE_LAYER_TARGET_ESP32 && !CHIP_DEVICE_LAYER_TARGET_MBED
+#if CHIP_DEVICE_CONFIG_ENABLE_DNSSD && !CHIP_DEVICE_LAYER_TARGET_ESP32 && !CHIP_DEVICE_LAYER_TARGET_MBED &&                        \
+    (!CHIP_DEVICE_LAYER_TARGET_AMEBA || !CHIP_DEVICE_CONFIG_ENABLE_CHIPOBLE)
     // StartServer only enables commissioning mode if device has not been commissioned
     app::DnssdServer::Instance().StartServer();
 #endif
-
-    // TODO @pan-apple Use IM protocol ID.
-    // Register to receive unsolicited legacy ZCL messages from the exchange manager.
-    err = mExchangeMgr.RegisterUnsolicitedMessageHandlerForProtocol(Protocols::TempZCL::Id, this);
-    SuccessOrExit(err);
 
     err = mCASEServer.ListenForSessionEstablishment(&mExchangeMgr, &mTransports, chip::DeviceLayer::ConnectivityMgr().GetBleLayer(),
                                                     &mSessions, &mFabrics, &mSessionIDAllocator);
@@ -189,7 +189,7 @@ void Server::Shutdown()
     mExchangeMgr.Shutdown();
     mSessions.Shutdown();
     mTransports.Close();
-    mCommissioningWindowManager.Cleanup();
+    mCommissioningWindowManager.Shutdown();
     chip::Platform::MemoryShutdown();
 }
 
@@ -256,26 +256,6 @@ exit:
         mFabrics.ReleaseFabricIndex(kMinValidFabricIndex);
     }
     return err;
-}
-
-CHIP_ERROR Server::OnMessageReceived(Messaging::ExchangeContext * exchangeContext, const PayloadHeader & payloadHeader,
-                                     System::PacketBufferHandle && buffer)
-{
-    CHIP_ERROR err = CHIP_NO_ERROR;
-    VerifyOrReturnError(!buffer.IsNull(), err = CHIP_ERROR_INVALID_ARGUMENT);
-    // TODO: BDX messages will also be possible in the future.
-    HandleDataModelMessage(exchangeContext, std::move(buffer));
-
-    return err;
-}
-
-void Server::OnResponseTimeout(Messaging::ExchangeContext * ec)
-{
-    ChipLogProgress(AppServer, "Failed to receive response");
-    if (mAppDelegate != nullptr)
-    {
-        mAppDelegate->OnReceiveError();
-    }
 }
 
 } // namespace chip

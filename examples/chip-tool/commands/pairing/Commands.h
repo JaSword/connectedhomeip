@@ -18,18 +18,17 @@
 
 #pragma once
 
+#include "CommissionedListCommand.h"
+#include "OpenCommissioningWindowCommand.h"
 #include "PairingCommand.h"
+
+#include <app/server/Dnssd.h>
+#include <lib/dnssd/Resolver.h>
 
 class Unpair : public PairingCommand
 {
 public:
     Unpair() : PairingCommand("unpair", PairingMode::None, PairingNetworkType::None) {}
-};
-
-class PairBypass : public PairingCommand
-{
-public:
-    PairBypass() : PairingCommand("bypass", PairingMode::Bypass, PairingNetworkType::None) {}
 };
 
 class PairQRCode : public PairingCommand
@@ -145,12 +144,17 @@ public:
     Ethernet() : PairingCommand("ethernet", PairingMode::Ethernet, PairingNetworkType::Ethernet) {}
 };
 
-class OpenCommissioningWindow : public PairingCommand
+class StartUdcServerCommand : public CHIPCommand
 {
 public:
-    OpenCommissioningWindow() :
-        PairingCommand("open-commissioning-window", PairingMode::OpenCommissioningWindow, PairingNetworkType::None)
-    {}
+    StartUdcServerCommand() : CHIPCommand("start-udc-server") {}
+    chip::System::Clock::Timeout GetWaitDuration() const override { return chip::System::Clock::Seconds16(300); }
+
+    CHIP_ERROR RunCommand() override
+    {
+        chip::app::DnssdServer::Instance().StartServer(chip::Dnssd::CommissioningMode::kDisabled);
+        return CHIP_NO_ERROR;
+    }
 };
 
 void registerCommandsPairing(Commands & commands)
@@ -159,7 +163,6 @@ void registerCommandsPairing(Commands & commands)
 
     commands_list clusterCommands = {
         make_unique<Unpair>(),
-        make_unique<PairBypass>(),
         make_unique<PairQRCode>(),
         make_unique<PairManualCode>(),
         make_unique<PairBleWiFi>(),
@@ -175,7 +178,10 @@ void registerCommandsPairing(Commands & commands)
         make_unique<PairOnNetworkDeviceType>(),
         make_unique<PairOnNetworkDeviceType>(),
         make_unique<PairOnNetworkInstanceName>(),
-        make_unique<OpenCommissioningWindow>(),
+        // TODO - enable CommissionedListCommand once DNS Cache is implemented
+        //        make_unique<CommissionedListCommand>(),
+        make_unique<StartUdcServerCommand>(),
+        make_unique<OpenCommissioningWindowCommand>(),
     };
 
     commands.Register(clusterName, clusterCommands);

@@ -39,4 +39,37 @@ const PeerAddress * SessionHandle::GetPeerAddress(SessionManager * sessionManage
     return &GetUnauthenticatedSession()->GetPeerAddress();
 }
 
+const ReliableMessageProtocolConfig & SessionHandle::GetMRPConfig(SessionManager * sessionManager) const
+{
+    if (IsSecure())
+    {
+        SecureSession * secureSession = sessionManager->GetSecureSession(*this);
+        if (secureSession == nullptr)
+        {
+            return gDefaultMRPConfig;
+        }
+        return secureSession->GetMRPConfig();
+    }
+    else
+    {
+        return GetUnauthenticatedSession()->GetMRPConfig();
+    }
+}
+
+void SessionHandle::SetMRPConfig(SessionManager * sessionManager, const ReliableMessageProtocolConfig & config)
+{
+    if (IsSecure())
+    {
+        SecureSession * secureSession = sessionManager->GetSecureSession(*this);
+        if (secureSession != nullptr)
+        {
+            secureSession->SetMRPConfig(config);
+        }
+    }
+    else
+    {
+        return GetUnauthenticatedSession()->SetMRPConfig(config);
+    }
+}
+
 } // namespace chip

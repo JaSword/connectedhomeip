@@ -26,6 +26,7 @@ AdvRouterAddr
 AdvSendAdvert
 AE
 aef
+AES
 algs
 alloc
 ameba
@@ -39,6 +40,7 @@ AppConfig
 ApplicationBasic
 ApplicationIdentifier
 ApplicationLauncher
+ApplyUpdateRequest
 approver
 appspot
 aps
@@ -47,8 +49,10 @@ argc
 args
 argv
 armeabi
+ARMmbed
 armv
 asdk
+AssertionError
 ASYNC
 att
 attId
@@ -58,6 +62,7 @@ attrMask
 attSizeBytes
 attType
 ATW
+ATWC
 AudioOutput
 auth
 autoconnect
@@ -68,6 +73,7 @@ autotools
 avL
 AwaitNextAction
 AXXXF
+AYNJV
 babaf
 backend
 backticks
@@ -77,6 +83,7 @@ BasicCHIPRegression
 baudrate
 BD
 BDX
+BDXDownloader
 BeagleBone
 befc
 bitbake
@@ -117,6 +124,7 @@ CACACACA
 cacerts
 CAfile
 cancelled
+capacitive
 CBB
 cbd
 CCMP
@@ -138,6 +146,7 @@ CHIPCryptoPALHsm
 CHIPDeviceController
 ChipDeviceCtrl
 CHIPDeviceEvent
+CHIPDevicePlatformConfig
 CHIPDevicePlatformEvent
 ChipEchoRequester
 ChipEchoResponder
@@ -145,6 +154,8 @@ ChipImInitiator
 ChipImResponder
 ChipLight
 ChipMessageLayer
+CHIPOBLE
+CHIPProjectConfig
 CHIPTest
 CHIPTool
 chmod
@@ -166,6 +177,7 @@ clusterListName
 ClusterRevision
 ClusterTestGeneration
 cmake
+CMakeLists
 CMD
 CMSIS
 CMVH
@@ -204,8 +216,10 @@ cp
 cpio
 cpp
 cppreference
+CPROTO
 cpuapp
 cpython
+CQM
 crypto
 cryptographic
 CSA
@@ -260,6 +274,7 @@ DevKitC
 DevKitM
 df
 dfu
+dhclient
 DHCP
 DHCPC
 DHCPv
@@ -268,6 +283,7 @@ dialout
 diffstat
 diffsyms
 dimmable
+dirname
 dirs
 disambiguated
 discoverable
@@ -279,6 +295,7 @@ DK
 DL
 DM
 DMG
+DMM
 DNS
 Dnsmasq
 dnsmasqd
@@ -301,6 +318,9 @@ eabi
 EB
 ECC
 ECD
+ECDH
+ECDSA
+EchoMessage
 EchoRequests
 EchoResponse
 EchoService
@@ -330,6 +350,7 @@ env
 esd
 ESPPORT
 Espressif
+esptool
 eth
 EthernetNetworkDiagnostics
 ethernets
@@ -374,7 +395,9 @@ FOTA
 FreeRTOS
 FreeRTOSConfig
 fsl
+fstab
 fsync
+fullclean
 gcloud
 GDB
 GeneralCommissioning
@@ -391,6 +414,7 @@ GetDeviceInfo
 GetDns
 GetIP
 getstarted
+githubusercontent
 gitignore
 glibc
 gn
@@ -415,6 +439,7 @@ Gv
 gz
 hardcoded
 hardknott
+hardwarever
 HardwareVersion
 HardwareVersionString
 hci
@@ -423,6 +448,7 @@ hciconfig
 hdlc
 HKDF
 hoc
+homebrew
 hostapd
 hostname
 href
@@ -473,6 +499,7 @@ IPv
 ISCAN
 itemName
 iterable
+JDK
 jinja
 jlink
 JLink
@@ -480,6 +507,7 @@ JLinkExe
 JLinkRTTClient
 JN
 jpg
+jre
 js
 json
 JTAG
@@ -521,10 +549,14 @@ lifecycle
 lightbulb
 lightin
 LightingColor
+LightingState
 LinkSoftwareAndDocumentationPack
+LinuxOTAImageProcessor
+LinuxOTARequestorDriver
 LocalConfigDisabled
 localhost
 localstatedir
+LockingState
 loopback
 LowPower
 LPC
@@ -550,10 +582,16 @@ matterc
 matterd
 MatterLock
 matterSdkSourceBuild
+matterSourceBuildAbiFilters
 matterUTestLib
 MaxInterval
 MaxIntervalCeilingSeconds
 MaxRtrAdvInterval
+mbed
+MbedCommissioning
+MbedNewTarget
+mbedos
+mbedTarget
 mbedTLS
 mcu
 MCUboot
@@ -578,6 +616,7 @@ MfrDeviceCert
 MfrDeviceId
 mgmt
 microcontroller
+microcontrollers
 MicroSD
 middleware
 Minicom
@@ -603,6 +642,8 @@ Multiband
 Multicast
 multilib
 Multiprotocol
+multithreaded
+mutexes
 MX
 mydir
 MyPASSWORD
@@ -649,6 +690,8 @@ OnOff
 OnOffClusterTest
 OnPlatformEvent
 OO
+openjdk
+OpenOCD
 OpenSSL
 OpenThread
 OpenThreadDemo
@@ -662,6 +705,16 @@ optionsMask
 optionsOverride
 orgs
 OTA
+OTADownloader
+OTAImageProcessorDriver
+OTAImageProcessorInterface
+OTAProviderIpAddress
+OTAProviderNodeId
+OTAProviderSerialPort
+OTARequesterImpl
+OTARequestor
+OTARequestorDriver
+OTARequestorSerialPort
 OTBR
 otcli
 PAA
@@ -686,6 +739,7 @@ peerAddrStr
 pem
 percentageLiftValue
 pexpect
+pickString
 PID
 Pigweed
 PinCode
@@ -706,19 +760,20 @@ prj
 ProductID
 ProductLabel
 ProductName
-productrev
-ProductRevision
 ProductURL
 proto
+protobuf
 protos
 Prover
 PRs
 PSCAN
 PSK
+PSoC
 PTR
 pts
 PumpConfigurationAndControl
 pwd
+PWM
 PXXXF
 py
 pychip
@@ -729,6 +784,7 @@ PyFunction
 pylint
 PyObject
 PyRun
+pytest
 QEMU
 Qorvo
 QPG
@@ -742,6 +798,7 @@ qvCHIP
 RADVD
 raspberryPi
 RasPi
+rAv
 RCP
 ReadConfigValue
 readelf
@@ -764,6 +821,7 @@ repo
 req
 Requestor
 responder
+retargeting
 reusability
 rfid
 rfids
@@ -787,6 +845,7 @@ RUNAS
 RunMain
 runtime
 rw
+RXD
 sbin
 scalability
 scalable
@@ -810,10 +869,15 @@ SERIALDEVICE
 SerialNumber
 ServiceId
 SetDns
+SetImageProcessorDelegate
+SetOtaRequestorDriver
 SetpointRaiseLower
+SetRequestorInstance
 SetUpPINCode
 SetupQRCode
 sexualized
+SHA
+shubhamdp
 SIGINT
 SiLabs
 SiliconLabs
@@ -824,6 +888,7 @@ SLAAC
 SLTB
 SLWSTK
 SmartThings
+smoketest
 SMP
 socat
 socio
@@ -833,6 +898,7 @@ softmmu
 SoftwareDiagnostics
 SoftwareVersion
 SoftwareVersionString
+SPI
 spinel
 src
 SRP
@@ -842,6 +908,7 @@ startoffset
 StartScan
 stderr
 stdout
+sterm
 str
 strcpy
 su
@@ -850,6 +917,7 @@ subcommand
 subcommands
 subdirectories
 subdirectory
+subfolder
 submodule
 submodules
 subprocess
@@ -873,6 +941,7 @@ systemduserunitdir
 sysv
 TargetNavigator
 TBD
+tcl
 TCP
 teardown
 Telink
@@ -921,6 +990,7 @@ ttyACMx
 ttymxc
 ttyUSB
 TvChannel
+TXD
 txt
 uart
 UART
@@ -946,6 +1016,7 @@ URI
 usbmodem
 USBtoUART
 uscif
+userguide
 USERINTERFACE
 UserLabel
 usermod
