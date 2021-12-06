@@ -96,6 +96,7 @@ CHIP_ERROR ExampleOperationalCredentialsIssuer::GenerateNOCChainAfterValidation(
                                                                                 MutableByteSpan & noc)
 {
     ChipLogProgress(Controller, "Generating NOC");
+    ChipLogProgress(Controller, "Sword Debugging Generating NOC Used nodeId:%lu, fabricId:%lu", nodeId, fabricId);
     X509CertRequestParams noc_request = { 1, mIntermediateIssuerId, mNow, mNow + mValidity, true, fabricId, true, nodeId };
     ReturnErrorOnFailure(
         NewNodeOperationalX509Cert(noc_request, CertificateIssuerLevel::kIssuerIsIntermediateCA, pubkey, mIntermediateIssuer, noc));

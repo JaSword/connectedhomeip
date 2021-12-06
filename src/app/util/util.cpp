@@ -246,6 +246,7 @@ static void prepareForResponse(const EmberAfClusterCommand * cmd)
     }
 }
 
+// extern void MatterDescriptorPluginServerInitCallbackModified(void);
 // ****************************************
 // Initialize Clusters
 // ****************************************
@@ -275,6 +276,8 @@ void emberAfInit(chip::Messaging::ExchangeManager * exchangeMgr)
     emAfInitEvents();
 
     MATTER_PLUGINS_INIT
+
+    // MatterDescriptorPluginServerInitCallbackModified();
 
     emAfCallInits();
 }

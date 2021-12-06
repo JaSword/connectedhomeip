@@ -139,21 +139,21 @@ CHIP_ERROR DescriptorAttrAccess::Read(const ConcreteAttributePath & aPath, Attri
 }
 } // anonymous namespace
 
+#if 0
 void MatterDescriptorPluginServerInitCallback(void)
+#endif
+void MatterDescriptorPluginServerInitCallbackModified(void)
 {
     // ChipLogDetail(Zcl,"Sword Debugging 1: MatterDescriptorPluginServerInitCallback");
     emberAfPrintln(EMBER_AF_PRINT_DEBUG, "Sword Debugging: MatterDescriptorPluginServerInitCallback");
 #if CHIP_CLUSTER_CONFIG_ENABLE_COMPLEX_ATTRIBUTE_READ
-    #if 0
     static bool attrAccessRegistered = false;
 
     if (!attrAccessRegistered)
     {
-        ChipLogDetail(Zcl,"Sword Debugging 2: MatterDescriptorPluginServerInitCallback");
+        // ChipLogDetail(Zcl,"Sword Debugging 2: MatterDescriptorPluginServerInitCallback");
         registerAttributeAccessOverride(&gAttrAccess);
         attrAccessRegistered = true;
     }
-    #endif
-    registerAttributeAccessOverride(&gAttrAccess);
 #endif
 }
