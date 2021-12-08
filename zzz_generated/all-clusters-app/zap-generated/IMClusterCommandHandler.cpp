@@ -1380,6 +1380,15 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
 
 } // namespace OtaSoftwareUpdateProvider
 
+namespace OtaSoftwareUpdateProvider {
+
+void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandPath & aCommandPath, TLV::TLVReader & aDataTlv)
+{
+    ReportCommandUnsupported(apCommandObj, aCommandPath);
+}
+
+} // namespace OtaSoftwareUpdateProvider
+
 namespace OnOff {
 
 void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandPath & aCommandPath, TLV::TLVReader & aDataTlv)
@@ -1696,6 +1705,15 @@ void DispatchServerCommand(CommandHandler * apCommandObj, const ConcreteCommandP
         if (TLVError == CHIP_NO_ERROR) {
         wasHandled = emberAfTestClusterClusterTestAddArgumentsCallback(apCommandObj, aCommandPath, commandData);
         }
+            break;
+        }
+        case Commands::TestEmitTestEventRequest::Id: {
+            Commands::TestEmitTestEventRequest::DecodableType commandData;
+            TLVError = DataModel::Decode(aDataTlv, commandData);
+            if (TLVError == CHIP_NO_ERROR)
+            {
+                wasHandled = emberAfTestClusterClusterTestEmitTestEventRequestCallback(apCommandObj, aCommandPath, commandData);
+            }
             break;
         }
         case Commands::TestEmitTestEventRequest::Id: {
