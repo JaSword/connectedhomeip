@@ -26,7 +26,6 @@
 #include <app/util/CHIPDeviceCallbacksMgr.h>
 #include <app/util/af-enums.h>
 #include <app/util/af.h>
-#include <app/util/attribute-list-byte-span.h>
 #include <app/util/basic-types.h>
 #include <lib/core/CHIPEncoding.h>
 #include <lib/support/SafeInt.h>
@@ -35,7 +34,6 @@
 
 using namespace ::chip;
 using namespace ::chip::app::DataModel;
-using namespace ::chip::app::List;
 
 namespace {
 [[maybe_unused]] constexpr uint16_t kByteSpanSizeLengthInBytes = 2;
@@ -837,6 +835,27 @@ void TestClusterClusterListNullablesAndOptionalsStructListAttributeFilter(TLV::T
 
     Callback::Callback<TestClusterListNullablesAndOptionalsStructListAttributeCallback> * cb =
         Callback::Callback<TestClusterListNullablesAndOptionalsStructListAttributeCallback>::FromCancelable(onSuccessCallback);
+    cb->mCall(cb->mContext, list);
+}
+
+void TestClusterClusterListLongOctetStringListAttributeFilter(TLV::TLVReader * tlvData, Callback::Cancelable * onSuccessCallback,
+                                                              Callback::Cancelable * onFailureCallback)
+{
+    chip::app::DataModel::DecodableList<chip::ByteSpan> list;
+    CHIP_ERROR err = Decode(*tlvData, list);
+    if (err != CHIP_NO_ERROR)
+    {
+        if (onFailureCallback != nullptr)
+        {
+            Callback::Callback<DefaultFailureCallback> * cb =
+                Callback::Callback<DefaultFailureCallback>::FromCancelable(onFailureCallback);
+            cb->mCall(cb->mContext, EMBER_ZCL_STATUS_INVALID_VALUE);
+        }
+        return;
+    }
+
+    Callback::Callback<TestClusterListLongOctetStringListAttributeCallback> * cb =
+        Callback::Callback<TestClusterListLongOctetStringListAttributeCallback>::FromCancelable(onSuccessCallback);
     cb->mCall(cb->mContext, list);
 }
 

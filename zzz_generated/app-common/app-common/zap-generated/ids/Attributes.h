@@ -1822,6 +1822,18 @@ static constexpr AttributeId Id = Globals::Attributes::ClusterRevision::Id;
 namespace AdministratorCommissioning {
 namespace Attributes {
 
+namespace WindowStatus {
+static constexpr AttributeId Id = 0x00000000;
+} // namespace WindowStatus
+
+namespace AdminFabricIndex {
+static constexpr AttributeId Id = 0x00000001;
+} // namespace AdminFabricIndex
+
+namespace AdminVendorId {
+static constexpr AttributeId Id = 0x00000002;
+} // namespace AdminVendorId
+
 namespace FeatureMap {
 static constexpr AttributeId Id = Globals::Attributes::FeatureMap::Id;
 } // namespace FeatureMap
@@ -4781,6 +4793,10 @@ static constexpr AttributeId Id = 0x00000028;
 namespace RangeRestrictedInt16s {
 static constexpr AttributeId Id = 0x00000029;
 } // namespace RangeRestrictedInt16s
+
+namespace ListLongOctetString {
+static constexpr AttributeId Id = 0x0000002A;
+} // namespace ListLongOctetString
 
 namespace TimedWriteBoolean {
 static constexpr AttributeId Id = 0x00000030;

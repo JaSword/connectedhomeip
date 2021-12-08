@@ -311,6 +311,24 @@ public class ChipClusters {
 
     private native void revokeCommissioning(long chipClusterPtr, DefaultClusterCallback Callback);
 
+    public interface AdminFabricIndexAttributeCallback {
+      void onSuccess(Integer value);
+
+      void onError(Exception ex);
+    }
+
+    public void readWindowStatusAttribute(IntegerAttributeCallback callback) {
+      readWindowStatusAttribute(chipClusterPtr, callback);
+    }
+
+    public void readAdminFabricIndexAttribute(AdminFabricIndexAttributeCallback callback) {
+      readAdminFabricIndexAttribute(chipClusterPtr, callback);
+    }
+
+    public void readAdminVendorIdAttribute(IntegerAttributeCallback callback) {
+      readAdminVendorIdAttribute(chipClusterPtr, callback);
+    }
+
     public void readClusterRevisionAttribute(IntegerAttributeCallback callback) {
       readClusterRevisionAttribute(chipClusterPtr, callback);
     }
@@ -323,6 +341,15 @@ public class ChipClusters {
     public void reportClusterRevisionAttribute(IntegerAttributeCallback callback) {
       reportClusterRevisionAttribute(chipClusterPtr, callback);
     }
+
+    private native void readWindowStatusAttribute(
+        long chipClusterPtr, IntegerAttributeCallback callback);
+
+    private native void readAdminFabricIndexAttribute(
+        long chipClusterPtr, AdminFabricIndexAttributeCallback callback);
+
+    private native void readAdminVendorIdAttribute(
+        long chipClusterPtr, IntegerAttributeCallback callback);
 
     private native void readClusterRevisionAttribute(
         long chipClusterPtr, IntegerAttributeCallback callback);
@@ -10739,6 +10766,12 @@ public class ChipClusters {
       void onError(Exception ex);
     }
 
+    public interface ListLongOctetStringAttributeCallback {
+      void onSuccess(List<Object> valueList);
+
+      void onError(Exception ex);
+    }
+
     public interface NullableBooleanAttributeCallback {
       void onSuccess(@Nullable Boolean value);
 
@@ -11531,6 +11564,10 @@ public class ChipClusters {
 
     public void reportRangeRestrictedInt16sAttribute(IntegerAttributeCallback callback) {
       reportRangeRestrictedInt16sAttribute(chipClusterPtr, callback);
+    }
+
+    public void readListLongOctetStringAttribute(ListLongOctetStringAttributeCallback callback) {
+      readListLongOctetStringAttribute(chipClusterPtr, callback);
     }
 
     public void readTimedWriteBooleanAttribute(BooleanAttributeCallback callback) {
@@ -12543,6 +12580,9 @@ public class ChipClusters {
 
     private native void reportRangeRestrictedInt16sAttribute(
         long chipClusterPtr, IntegerAttributeCallback callback);
+
+    private native void readListLongOctetStringAttribute(
+        long chipClusterPtr, ListLongOctetStringAttributeCallback callback);
 
     private native void readTimedWriteBooleanAttribute(
         long chipClusterPtr, BooleanAttributeCallback callback);

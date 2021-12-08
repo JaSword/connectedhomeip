@@ -26,6 +26,7 @@
 #include <app/AttributeAccessInterface.h>
 #include <app/CommandHandler.h>
 #include <app/ConcreteCommandPath.h>
+#include <app/EventLogging.h>
 #include <app/util/attribute-storage.h>
 #include <lib/core/CHIPSafeCasts.h>
 #include <lib/core/CHIPTLV.h>
@@ -74,6 +75,7 @@ private:
     CHIP_ERROR WriteListInt8uAttribute(AttributeValueDecoder & aDecoder);
     CHIP_ERROR ReadListOctetStringAttribute(AttributeValueEncoder & aEncoder);
     CHIP_ERROR WriteListOctetStringAttribute(AttributeValueDecoder & aDecoder);
+    CHIP_ERROR ReadListLongOctetStringAttribute(AttributeValueEncoder & aEncoder);
     CHIP_ERROR ReadListStructOctetStringAttribute(AttributeValueEncoder & aEncoder);
     CHIP_ERROR WriteListStructOctetStringAttribute(AttributeValueDecoder & aDecoder);
     CHIP_ERROR ReadListNullablesAndOptionalsStructAttribute(AttributeValueEncoder & aEncoder);
@@ -112,6 +114,9 @@ CHIP_ERROR TestAttrAccess::Read(const ConcreteReadAttributePath & aPath, Attribu
     }
     case Struct::Id: {
         return ReadStructAttribute(aEncoder);
+    }
+    case ListLongOctetString::Id: {
+        return ReadListLongOctetStringAttribute(aEncoder);
     }
     case NullableStruct::Id: {
         return ReadNullableStruct(aEncoder);
@@ -166,7 +171,7 @@ CHIP_ERROR TestAttrAccess::WriteNullableStruct(AttributeValueDecoder & aDecoder)
 
 CHIP_ERROR TestAttrAccess::ReadListInt8uAttribute(AttributeValueEncoder & aEncoder)
 {
-    return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+    return aEncoder.EncodeList([](const auto & encoder) -> CHIP_ERROR {
         for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
             ReturnErrorOnFailure(encoder.Encode(gListUint8Data[index]));
@@ -196,7 +201,7 @@ CHIP_ERROR TestAttrAccess::WriteListInt8uAttribute(AttributeValueDecoder & aDeco
 
 CHIP_ERROR TestAttrAccess::ReadListOctetStringAttribute(AttributeValueEncoder & aEncoder)
 {
-    return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+    return aEncoder.EncodeList([](const auto & encoder) -> CHIP_ERROR {
         for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
             ByteSpan span(gListOctetStringData[index].Data(), gListOctetStringData[index].Length());
@@ -228,9 +233,54 @@ CHIP_ERROR TestAttrAccess::WriteListOctetStringAttribute(AttributeValueDecoder &
     return iter.GetStatus();
 }
 
+CHIP_ERROR TestAttrAccess::ReadListLongOctetStringAttribute(AttributeValueEncoder & aEncoder)
+{
+    // The ListOctetStringAttribute takes 512 bytes, and the whole attribute will exceed the IPv6 MTU, so we can test list chunking
+    // feature with this attribute.
+    char buf[513] = "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 5
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 10
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 15
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 20
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 25
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef"
+                    "0123456789abcdef" // 30
+                    "0123456789abcdef"
+                    "0123456789abcdef"; // 32 * 16 = 512
+    return aEncoder.EncodeList([buf](const auto & encoder) -> CHIP_ERROR {
+        for (uint8_t index = 0; index < kAttributeListLength; index++)
+        {
+            ReturnErrorOnFailure(encoder.Encode(ByteSpan(chip::Uint8::from_const_char(buf), 512)));
+        }
+        return CHIP_NO_ERROR;
+    });
+}
+
 CHIP_ERROR TestAttrAccess::ReadListStructOctetStringAttribute(AttributeValueEncoder & aEncoder)
 {
-    return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+    return aEncoder.EncodeList([](const auto & encoder) -> CHIP_ERROR {
         for (uint8_t index = 0; index < kAttributeListLength; index++)
         {
             Structs::TestListStructOctet::Type structOctet;
@@ -276,7 +326,7 @@ CHIP_ERROR TestAttrAccess::WriteListStructOctetStringAttribute(AttributeValueDec
 
 CHIP_ERROR TestAttrAccess::ReadListNullablesAndOptionalsStructAttribute(AttributeValueEncoder & aEncoder)
 {
-    return aEncoder.EncodeList([](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+    return aEncoder.EncodeList([](const auto & encoder) -> CHIP_ERROR {
         // Just encode a single default-initialized
         // entry for now.
         Structs::NullablesAndOptionalsStruct::Type entry;
@@ -394,9 +444,30 @@ bool emberAfTestClusterClusterTestListStructArgumentRequestCallback(
 
     return SendBooleanResponse(commandObj, commandPath, shouldReturnTrue);
 }
+bool emberAfTestClusterClusterTestEmitTestEventRequestCallback(
+    CommandHandler * commandObj, const ConcreteCommandPath & commandPath,
+    const Commands::TestEmitTestEventRequest::DecodableType & commandData)
+{
+    Commands::TestEmitTestEventResponse::Type responseData;
+    Structs::SimpleStruct::Type arg4;
+    DataModel::List<const Structs::SimpleStruct::Type> arg5;
+    DataModel::List<const SimpleEnum> arg6;
+    EventOptions eventOptions;
+
+    // TODO:  Add code to pull arg4, arg5 and arg6 from the arguments of the command
+    Events::TestEvent::Type event{ commandData.arg1, commandData.arg2, commandData.arg3, arg4, arg5, arg6 };
+
+    if (CHIP_NO_ERROR != LogEvent(event, commandPath.mEndpointId, eventOptions, responseData.value))
+    {
+        emberAfSendImmediateDefaultResponse(EMBER_ZCL_STATUS_FAILURE);
+        return true;
+    }
+    commandObj->AddResponseData(commandPath, responseData);
+    return true;
+}
 
 bool emberAfTestClusterClusterTestListInt8UArgumentRequestCallback(
-    app::CommandHandler * commandObj, app::ConcreteCommandPath const & commandPath,
+    CommandHandler * commandObj, ConcreteCommandPath const & commandPath,
     Commands::TestListInt8UArgumentRequest::DecodableType const & commandData)
 {
     bool shouldReturnTrue = true;

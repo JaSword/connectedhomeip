@@ -31,8 +31,8 @@
   ],
   "endpointTypes": [
     {
-      "name": "Anonymous Endpoint Type",
-      "deviceTypeName": "Pump",
+      "name": "MA-pump",
+      "deviceTypeName": "MA-pump",
       "deviceTypeCode": 771,
       "deviceTypeProfileId": 2457,
       "clusters": [
@@ -3354,6 +3354,51 @@
           "commands": [],
           "attributes": [
             {
+              "name": "WindowStatus",
+              "code": 0,
+              "mfgCode": null,
+              "side": "server",
+              "included": 1,
+              "storageOption": "External",
+              "singleton": 0,
+              "bounded": 0,
+              "defaultValue": "0",
+              "reportable": 0,
+              "minInterval": 1,
+              "maxInterval": 65534,
+              "reportableChange": 0
+            },
+            {
+              "name": "AdminFabricIndex",
+              "code": 1,
+              "mfgCode": null,
+              "side": "server",
+              "included": 1,
+              "storageOption": "External",
+              "singleton": 0,
+              "bounded": 0,
+              "defaultValue": "1",
+              "reportable": 0,
+              "minInterval": 1,
+              "maxInterval": 65534,
+              "reportableChange": 0
+            },
+            {
+              "name": "AdminVendorId",
+              "code": 2,
+              "mfgCode": null,
+              "side": "server",
+              "included": 1,
+              "storageOption": "External",
+              "singleton": 0,
+              "bounded": 0,
+              "defaultValue": "0",
+              "reportable": 0,
+              "minInterval": 1,
+              "maxInterval": 65534,
+              "reportableChange": 0
+            },
+            {
               "name": "ClusterRevision",
               "code": 65533,
               "mfgCode": null,
@@ -4144,7 +4189,7 @@
       ]
     },
     {
-      "name": "Anonymous Endpoint Type",
+      "name": "MA-pump",
       "deviceTypeName": "MA-pump",
       "deviceTypeCode": 771,
       "deviceTypeProfileId": 2457,
@@ -6009,23 +6054,22 @@
   ],
   "endpoints": [
     {
-      "endpointTypeName": "Anonymous Endpoint Type",
+      "endpointTypeName": "MA-pump",
       "endpointTypeIndex": 0,
       "profileId": 2457,
       "endpointId": 0,
       "networkId": 0,
       "endpointVersion": 1,
-      "deviceIdentifier": null
+      "deviceIdentifier": 771
     },
     {
-      "endpointTypeName": "Anonymous Endpoint Type",
+      "endpointTypeName": "MA-pump",
       "endpointTypeIndex": 1,
       "profileId": 2457,
       "endpointId": 1,
       "networkId": 0,
       "endpointVersion": 1,
-      "deviceIdentifier": null
+      "deviceIdentifier": 771
     }
-  ],
-  "log": []
+  ]
 }

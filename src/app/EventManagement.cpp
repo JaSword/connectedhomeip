@@ -93,7 +93,6 @@ struct EventEnvelopeContext
     Timestamp mDeltaTime = Timestamp::Epoch(System::Clock::kZero);
 #endif
     PriorityLevel mPriority = PriorityLevel::First;
-    NodeId mNodeId          = 0;
     ClusterId mClusterId    = 0;
     EndpointId mEndpointId  = 0;
     EventId mEventId        = 0;
@@ -278,8 +277,8 @@ CHIP_ERROR EventManagement::CalculateEventSize(EventLoggingDelegate * apDelegate
 {
     CHIP_ERROR err = CHIP_NO_ERROR;
     System::PacketBufferTLVWriter writer;
-    EventLoadOutContext ctxt       = EventLoadOutContext(writer, apOptions->mpEventSchema->mPriority,
-                                                   GetPriorityBuffer(apOptions->mpEventSchema->mPriority)->GetLastEventNumber());
+    EventLoadOutContext ctxt =
+        EventLoadOutContext(writer, apOptions->mPriority, GetPriorityBuffer(apOptions->mPriority)->GetLastEventNumber());
     System::PacketBufferHandle buf = System::PacketBufferHandle::New(kMaxEventSizeReserve);
     if (buf.IsNull())
     {
@@ -287,12 +286,22 @@ CHIP_ERROR EventManagement::CalculateEventSize(EventLoggingDelegate * apDelegate
     }
     writer.Init(std::move(buf));
 
-    ctxt.mCurrentEventNumber = GetPriorityBuffer(apOptions->mpEventSchema->mPriority)->GetLastEventNumber();
-    ctxt.mCurrentTime.mValue = GetPriorityBuffer(apOptions->mpEventSchema->mPriority)->GetLastEventTimestamp();
-    err                      = ConstructEvent(&ctxt, apDelegate, apOptions);
-    if (CHIP_NO_ERROR == err)
+    ctxt.mCurrentEventNumber = GetPriorityBuffer(apOptions->mPriority)->GetLastEventNumber();
+    ctxt.mCurrentTime.mValue = GetPriorityBuffer(apOptions->mPriority)->GetLastEventTimestamp();
+
+    TLVWriter checkpoint = ctxt.mWriter;
+    err                  = ConstructEvent(&ctxt, apDelegate, apOptions);
+    if (err != CHIP_NO_ERROR)
     {
-        requiredSize = writer.GetLengthWritten();
+        ctxt.mWriter = checkpoint;
+    }
+    else
+    {
+        // update these variables since ConstructEvent can be used to track the
+        // state of a set of events over multiple calls.
+        ctxt.mCurrentEventNumber++;
+        ctxt.mCurrentTime = apOptions->mTimestamp;
+        requiredSize      = writer.GetLengthWritten();
     }
     return err;
 }
@@ -300,39 +309,29 @@ CHIP_ERROR EventManagement::CalculateEventSize(EventLoggingDelegate * apDelegate
 CHIP_ERROR EventManagement::ConstructEvent(EventLoadOutContext * apContext, EventLoggingDelegate * apDelegate,
                                            const EventOptions * apOptions)
 {
-
-    CHIP_ERROR err       = CHIP_NO_ERROR;
-    TLVWriter checkpoint = apContext->mWriter;
-    TLV::TLVType dataContainerType;
-    EventReportIB::Builder eventReportBuilder;
-    EventDataIB::Builder eventDataIBBuilder;
-    EventPathIB::Builder eventPathBuilder;
     uint64_t deltatime = 0;
+    VerifyOrReturnError(apContext->mCurrentEventNumber >= apContext->mStartingEventNumber, CHIP_NO_ERROR
+                        /* no-op: don't write event, but advance current event Number */);
 
-    VerifyOrExit(apContext->mCurrentEventNumber >= apContext->mStartingEventNumber,
-                 /* no-op: don't write event, but advance current event Number */);
+    VerifyOrReturnError(apOptions != nullptr, CHIP_ERROR_INVALID_ARGUMENT);
 
-    VerifyOrExit(apOptions != nullptr, err = CHIP_ERROR_INVALID_ARGUMENT);
-
+    EventReportIB::Builder eventReportBuilder;
     eventReportBuilder.Init(&(apContext->mWriter));
     // TODO: Update IsUrgent, issue 11386
     // TODO: Update statusIB, issue 11388
-    eventDataIBBuilder = eventReportBuilder.CreateEventData();
-    eventPathBuilder   = eventDataIBBuilder.CreatePath();
-    err                = eventDataIBBuilder.GetError();
-    SuccessOrExit(err);
+    EventDataIB::Builder & eventDataIBBuilder = eventReportBuilder.CreateEventData();
+    ReturnErrorOnFailure(eventReportBuilder.GetError());
+    EventPathIB::Builder & eventPathBuilder = eventDataIBBuilder.CreatePath();
+    ReturnErrorOnFailure(eventDataIBBuilder.GetError());
 
-    // TODO: Revisit NodeId since the the encoding spec and the IM seem to disagree on how this stuff works
-    eventPathBuilder.Node(apOptions->mpEventSchema->mNodeId)
-        .Endpoint(apOptions->mpEventSchema->mEndpointId)
-        .Cluster(apOptions->mpEventSchema->mClusterId)
-        .Event(apOptions->mpEventSchema->mEventId)
+    eventPathBuilder.Endpoint(apOptions->mPath.mEndpointId)
+        .Cluster(apOptions->mPath.mClusterId)
+        .Event(apOptions->mPath.mEventId)
         .IsUrgent(false)
         .EndOfEventPathIB();
-    err = eventPathBuilder.GetError();
-    SuccessOrExit(err);
-
+    ReturnErrorOnFailure(eventPathBuilder.GetError());
     eventDataIBBuilder.Priority(chip::to_underlying(apContext->mPriority));
+    ReturnErrorOnFailure(eventDataIBBuilder.GetError());
 
     deltatime = apOptions->mTimestamp.mValue - apContext->mCurrentTime.mValue;
     if (apOptions->mTimestamp.IsSystem())
@@ -344,42 +343,17 @@ CHIP_ERROR EventManagement::ConstructEvent(EventLoadOutContext * apContext, Even
         eventDataIBBuilder.DeltaEpochTimestamp(deltatime);
     }
 
-    err = eventDataIBBuilder.GetError();
-    SuccessOrExit(err);
+    ReturnErrorOnFailure(eventDataIBBuilder.GetError());
 
-    err = apContext->mWriter.StartContainer(ContextTag(chip::to_underlying(EventDataIB::Tag::kData)), TLV::kTLVType_Structure,
-                                            dataContainerType);
-    SuccessOrExit(err);
     // Callback to write the EventData
-    err = apDelegate->WriteEvent(apContext->mWriter);
-    SuccessOrExit(err);
-
-    err = apContext->mWriter.EndContainer(dataContainerType);
-    SuccessOrExit(err);
-
+    ReturnErrorOnFailure(apDelegate->WriteEvent(apContext->mWriter));
     eventDataIBBuilder.EndOfEventDataIB();
-    SuccessOrExit(err = eventDataIBBuilder.GetError());
+    ReturnErrorOnFailure(eventDataIBBuilder.GetError());
     eventReportBuilder.EndOfEventReportIB();
-    SuccessOrExit(err = eventReportBuilder.GetError());
-
-    err = apContext->mWriter.Finalize();
-    SuccessOrExit(err);
-
+    ReturnErrorOnFailure(eventReportBuilder.GetError());
+    ReturnErrorOnFailure(apContext->mWriter.Finalize());
     apContext->mFirst = false;
-
-exit:
-    if (err != CHIP_NO_ERROR)
-    {
-        apContext->mWriter = checkpoint;
-    }
-    else
-    {
-        // update these variables since ConstructEvent can be used to track the
-        // state of a set of events over multiple calls.
-        apContext->mCurrentEventNumber++;
-        apContext->mCurrentTime = apOptions->mTimestamp;
-    }
-    return err;
+    return CHIP_NO_ERROR;
 }
 
 void EventManagement::CreateEventManagement(Messaging::ExchangeManager * apExchangeManager, uint32_t aNumBuffers,
@@ -501,8 +475,6 @@ CHIP_ERROR EventManagement::LogEvent(EventLoggingDelegate * apDelegate, EventOpt
 #endif // !CHIP_SYSTEM_CONFIG_NO_LOCKING
 
         VerifyOrExit(mState != EventManagementStates::Shutdown, err = CHIP_ERROR_INCORRECT_STATE);
-        VerifyOrExit(aEventOptions.mpEventSchema != nullptr, err = CHIP_ERROR_INCORRECT_STATE);
-
         err = LogEventPrivate(apDelegate, aEventOptions, aEventNumber);
     }
 exit:
@@ -518,8 +490,8 @@ CHIP_ERROR EventManagement::LogEventPrivate(EventLoggingDelegate * apDelegate, E
     aEventNumber                   = 0;
     CircularEventBuffer checkpoint = *mpEventBuffer;
     CircularEventBuffer * buffer   = nullptr;
-    EventLoadOutContext ctxt       = EventLoadOutContext(writer, aEventOptions.mpEventSchema->mPriority,
-                                                   GetPriorityBuffer(aEventOptions.mpEventSchema->mPriority)->GetLastEventNumber());
+    EventLoadOutContext ctxt =
+        EventLoadOutContext(writer, aEventOptions.mPriority, GetPriorityBuffer(aEventOptions.mPriority)->GetLastEventNumber());
     EventOptions opts;
 #if CHIP_CONFIG_EVENT_LOGGING_UTC_TIMESTAMPS & CHIP_SYSTEM_CONFIG_PLATFORM_PROVIDES_TIME
     Timestamp timestamp;
@@ -535,25 +507,23 @@ CHIP_ERROR EventManagement::LogEventPrivate(EventLoggingDelegate * apDelegate, E
     opts = EventOptions(timestamp);
     // Start the event container (anonymous structure) in the circular buffer
     writer.Init(*mpEventBuffer);
-
     // check whether the entry is to be logged or discarded silently
-    VerifyOrExit(aEventOptions.mpEventSchema->mPriority >= CHIP_CONFIG_EVENT_GLOBAL_PRIORITY, /* no-op */);
+    VerifyOrExit(aEventOptions.mPriority >= CHIP_CONFIG_EVENT_GLOBAL_PRIORITY, /* no-op */);
 
+    opts.mPriority = aEventOptions.mPriority;
     // Create all event specific data
     // Timestamp; encoded as a delta time
 
-    opts.mTimestamp = aEventOptions.mTimestamp;
-
-    if (GetPriorityBuffer(aEventOptions.mpEventSchema->mPriority)->GetFirstEventTimestamp() == 0)
+    if (GetPriorityBuffer(aEventOptions.mPriority)->GetFirstEventTimestamp() == 0)
     {
-        GetPriorityBuffer(aEventOptions.mpEventSchema->mPriority)->UpdateFirstLastEventTime(opts.mTimestamp);
+        GetPriorityBuffer(aEventOptions.mPriority)->UpdateFirstLastEventTime(opts.mTimestamp);
     }
 
-    opts.mUrgent       = aEventOptions.mUrgent;
-    opts.mpEventSchema = aEventOptions.mpEventSchema;
+    opts.mUrgent = aEventOptions.mUrgent;
+    opts.mPath   = aEventOptions.mPath;
 
-    ctxt.mCurrentEventNumber = GetPriorityBuffer(opts.mpEventSchema->mPriority)->GetLastEventNumber();
-    ctxt.mCurrentTime.mValue = GetPriorityBuffer(opts.mpEventSchema->mPriority)->GetLastEventTimestamp();
+    ctxt.mCurrentEventNumber = GetPriorityBuffer(opts.mPriority)->GetLastEventNumber();
+    ctxt.mCurrentTime.mValue = GetPriorityBuffer(opts.mPriority)->GetLastEventTimestamp();
 
     err = CalculateEventSize(apDelegate, &opts, requestSize);
     SuccessOrExit(err);
@@ -571,7 +541,7 @@ CHIP_ERROR EventManagement::LogEventPrivate(EventLoggingDelegate * apDelegate, E
     while (true)
     {
         VerifyOrExit(buffer->GetTotalDataLength() >= writer.GetLengthWritten(), err = CHIP_ERROR_BUFFER_TOO_SMALL);
-        if (buffer->IsFinalDestinationForPriority(opts.mpEventSchema->mPriority))
+        if (buffer->IsFinalDestinationForPriority(opts.mPriority))
         {
             break;
         }
@@ -590,25 +560,24 @@ exit:
     {
         *mpEventBuffer = checkpoint;
     }
-    else if (opts.mpEventSchema->mPriority >= CHIP_CONFIG_EVENT_GLOBAL_PRIORITY)
+    else if (opts.mPriority >= CHIP_CONFIG_EVENT_GLOBAL_PRIORITY)
     {
-        CircularEventBuffer * currentBuffer = GetPriorityBuffer(opts.mpEventSchema->mPriority);
+        CircularEventBuffer * currentBuffer = GetPriorityBuffer(opts.mPriority);
         aEventNumber                        = currentBuffer->VendEventNumber();
         currentBuffer->UpdateFirstLastEventTime(opts.mTimestamp);
 
 #if CHIP_CONFIG_EVENT_LOGGING_VERBOSE_DEBUG_LOGS
         ChipLogDetail(EventLogging,
-                      "LogEvent event number: 0x" ChipLogFormatX64 " schema priority: %u cluster id: " ChipLogFormatMEI
-                      " event id: 0x%" PRIx32 " %s timestamp: 0x" ChipLogFormatX64,
-                      ChipLogValueX64(aEventNumber), static_cast<unsigned>(opts.mpEventSchema->mPriority),
-                      ChipLogValueMEI(opts.mpEventSchema->mClusterId), opts.mpEventSchema->mEventId,
+                      "LogEvent event number: 0x" ChipLogFormatX64 " schema priority: %u, endpoint id:  0x%" PRIx16
+                      " cluster id: " ChipLogFormatMEI " event id: 0x%" PRIx32 " %s timestamp: 0x" ChipLogFormatX64,
+                      ChipLogValueX64(aEventNumber), static_cast<unsigned>(opts.mPriority), opts.mPath.mEndpointId,
+                      ChipLogValueMEI(opts.mPath.mClusterId), opts.mPath.mEventId,
                       opts.mTimestamp.mType == Timestamp::Type::kSystem ? "Sys" : "Epoch", ChipLogValueX64(opts.mTimestamp.mValue));
 #endif // CHIP_CONFIG_EVENT_LOGGING_VERBOSE_DEBUG_LOGS
 
         if (opts.mUrgent == EventOptions::Type::kUrgent)
         {
-            ConcreteEventPath path(opts.mpEventSchema->mEndpointId, opts.mpEventSchema->mClusterId, opts.mpEventSchema->mEventId);
-            err = InteractionModelEngine::GetInstance()->GetReportingEngine().ScheduleUrgentEventDelivery(path);
+            err = InteractionModelEngine::GetInstance()->GetReportingEngine().ScheduleUrgentEventDelivery(opts.mPath);
         }
     }
 
@@ -789,7 +758,6 @@ CHIP_ERROR EventManagement::FetchEventParameters(const TLVReader & aReader, size
     {
         EventPathIB::Parser path;
         ReturnErrorOnFailure(path.Init(aReader));
-        ReturnErrorOnFailure(path.GetNode(&(envelope->mNodeId)));
         ReturnErrorOnFailure(path.GetEndpoint(&(envelope->mEndpointId)));
         ReturnErrorOnFailure(path.GetCluster(&(envelope->mClusterId)));
         ReturnErrorOnFailure(path.GetEvent(&(envelope->mEventId)));

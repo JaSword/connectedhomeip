@@ -27,7 +27,7 @@ tests:
       command: "readAttribute"
       attribute: "Device List"
       response:
-          value: [{ type: 0, revision: 1 }]
+          value: [{ type: 22, revision: 1 }]
 
     - label: "Read attribute Server list"
       command: "readAttribute"
@@ -60,7 +60,9 @@ tests:
       command: "readAttribute"
       attribute: "Client List"
       response:
-          value: []
+          value: [
+                  0x0029, # OTA Software Update Provider
+              ]
 
     - label: "Read attribute Parts list"
       command: "readAttribute"

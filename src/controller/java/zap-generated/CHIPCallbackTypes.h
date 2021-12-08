@@ -35,6 +35,12 @@ typedef void (*CHIPAccountLoginClusterGetSetupPINResponseCallbackType)(
 typedef void (*CHIPAccountLoginClusterClusterRevisionAttributeCallbackType)(
     void *, chip::app::Clusters::AccountLogin::Attributes::ClusterRevision::TypeInfo::DecodableArgType);
 
+typedef void (*CHIPAdministratorCommissioningClusterWindowStatusAttributeCallbackType)(
+    void *, chip::app::Clusters::AdministratorCommissioning::Attributes::WindowStatus::TypeInfo::DecodableArgType);
+typedef void (*CHIPAdministratorCommissioningClusterAdminFabricIndexAttributeCallbackType)(
+    void *, chip::app::Clusters::AdministratorCommissioning::Attributes::AdminFabricIndex::TypeInfo::DecodableArgType);
+typedef void (*CHIPAdministratorCommissioningClusterAdminVendorIdAttributeCallbackType)(
+    void *, chip::app::Clusters::AdministratorCommissioning::Attributes::AdminVendorId::TypeInfo::DecodableArgType);
 typedef void (*CHIPAdministratorCommissioningClusterClusterRevisionAttributeCallbackType)(
     void *, chip::app::Clusters::AdministratorCommissioning::Attributes::ClusterRevision::TypeInfo::DecodableArgType);
 
@@ -915,6 +921,8 @@ typedef void (*CHIPTestClusterClusterRangeRestrictedInt16uAttributeCallbackType)
     void *, chip::app::Clusters::TestCluster::Attributes::RangeRestrictedInt16u::TypeInfo::DecodableArgType);
 typedef void (*CHIPTestClusterClusterRangeRestrictedInt16sAttributeCallbackType)(
     void *, chip::app::Clusters::TestCluster::Attributes::RangeRestrictedInt16s::TypeInfo::DecodableArgType);
+typedef void (*CHIPTestClusterClusterListLongOctetStringAttributeCallbackType)(
+    void *, const chip::app::Clusters::TestCluster::Attributes::ListLongOctetString::TypeInfo::DecodableType &);
 typedef void (*CHIPTestClusterClusterTimedWriteBooleanAttributeCallbackType)(
     void *, chip::app::Clusters::TestCluster::Attributes::TimedWriteBoolean::TypeInfo::DecodableArgType);
 typedef void (*CHIPTestClusterClusterUnsupportedAttributeCallbackType)(

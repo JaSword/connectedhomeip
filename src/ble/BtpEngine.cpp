@@ -439,7 +439,7 @@ bool BtpEngine::HandleCharacteristicSend(System::PacketBufferHandle data, bool s
         mTxLength = mTxBuf->DataLength();
 
         ChipLogDebugBtpEngine(Ble, ">>> CHIPoBle preparing to send whole message:");
-        PrintBufDebug(data);
+        PrintBufDebug(mTxBuf);
 
         // Determine fragment header size.
         uint8_t header_size =
@@ -495,7 +495,7 @@ bool BtpEngine::HandleCharacteristicSend(System::PacketBufferHandle data, bool s
 
         characteristic[0] = headerFlags.Raw();
         ChipLogDebugBtpEngine(Ble, ">>> CHIPoBle preparing to send first fragment:");
-        PrintBufDebug(data);
+        PrintBufDebug(mTxBuf);
     }
     else if (mTxState == kState_InProgress)
     {

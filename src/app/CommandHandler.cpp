@@ -173,7 +173,13 @@ void CommandHandler::DecrementHoldOff()
     {
         return;
     }
-    CHIP_ERROR err = SendCommandResponse();
+
+    CHIP_ERROR err = CHIP_NO_ERROR;
+    if (!mpExchangeCtx->IsGroupExchangeContext())
+    {
+        err = SendCommandResponse();
+    }
+
     if (err != CHIP_NO_ERROR)
     {
         ChipLogError(DataManagement, "Failed to send command response: %" CHIP_ERROR_FORMAT, err.Format());
@@ -209,61 +215,71 @@ CHIP_ERROR CommandHandler::ProcessCommandDataIB(CommandDataIB::Parser & aCommand
 {
     CHIP_ERROR err = CHIP_NO_ERROR;
     CommandPathIB::Parser commandPath;
+    ConcreteCommandPath concretePath(0, 0, 0);
     TLV::TLVReader commandDataReader;
-    ClusterId clusterId;
-    CommandId commandId;
-    EndpointId endpointId;
+
+    // NOTE: errors may occur before the concrete command path is even fully decoded.
 
     err = aCommandElement.GetPath(&commandPath);
     SuccessOrExit(err);
 
-    err = commandPath.GetClusterId(&clusterId);
+    err = commandPath.GetClusterId(&concretePath.mClusterId);
     SuccessOrExit(err);
 
-    err = commandPath.GetCommandId(&commandId);
+    err = commandPath.GetCommandId(&concretePath.mCommandId);
     SuccessOrExit(err);
 
-    err = commandPath.GetEndpointId(&endpointId);
+    if (mpExchangeCtx != nullptr && mpExchangeCtx->IsGroupExchangeContext())
+    {
+        // TODO retrieve Endpoint ID with GroupDataProvider using GroupId and FabricId
+        // Issue 11075
+
+        // Using endpoint 1 for test purposes
+        concretePath.mEndpointId = 1;
+        err                      = CHIP_NO_ERROR;
+    }
+    else
+    {
+        err = commandPath.GetEndpointId(&concretePath.mEndpointId);
+    }
     SuccessOrExit(err);
-    VerifyOrExit(mpCallback->CommandExists(ConcreteCommandPath(endpointId, clusterId, commandId)),
-                 err = CHIP_ERROR_INVALID_PROFILE_ID);
+
+    VerifyOrExit(mpCallback->CommandExists(concretePath), err = CHIP_ERROR_INVALID_PROFILE_ID);
+
     err = aCommandElement.GetData(&commandDataReader);
     if (CHIP_END_OF_TLV == err)
     {
         ChipLogDetail(DataManagement,
                       "Received command without data for Endpoint=%" PRIu16 " Cluster=" ChipLogFormatMEI
                       " Command=" ChipLogFormatMEI,
-                      endpointId, ChipLogValueMEI(clusterId), ChipLogValueMEI(commandId));
+                      concretePath.mEndpointId, ChipLogValueMEI(concretePath.mClusterId), ChipLogValueMEI(concretePath.mCommandId));
         err = CHIP_NO_ERROR;
     }
     if (CHIP_NO_ERROR == err)
     {
         ChipLogDetail(DataManagement,
                       "Received command for Endpoint=%" PRIu16 " Cluster=" ChipLogFormatMEI " Command=" ChipLogFormatMEI,
-                      endpointId, ChipLogValueMEI(clusterId), ChipLogValueMEI(commandId));
-        const ConcreteCommandPath concretePath(endpointId, clusterId, commandId);
+                      concretePath.mEndpointId, ChipLogValueMEI(concretePath.mClusterId), ChipLogValueMEI(concretePath.mCommandId));
         SuccessOrExit(MatterPreCommandReceivedCallback(concretePath));
-        mpCallback->DispatchCommand(*this, ConcreteCommandPath(endpointId, clusterId, commandId), commandDataReader);
+        mpCallback->DispatchCommand(*this, concretePath, commandDataReader);
         MatterPostCommandReceivedCallback(concretePath);
     }
 
 exit:
     if (err != CHIP_NO_ERROR)
     {
-        ConcreteCommandPath path(endpointId, clusterId, commandId);
-
         // The Path is the path in the request if there are any error occurred before we dispatch the command to clusters.
         // Currently, it could be failed to decode Path or failed to find cluster / command on desired endpoint.
         // TODO: The behavior when receiving a malformed message is not clear in the Spec. (Spec#3259)
         // TODO: The error code should be updated after #7072 added error codes required by IM.
         if (err == CHIP_ERROR_INVALID_PROFILE_ID)
         {
-            ChipLogDetail(DataManagement, "No Cluster " ChipLogFormatMEI " on Endpoint 0x%" PRIx16, ChipLogValueMEI(clusterId),
-                          endpointId);
+            ChipLogDetail(DataManagement, "No Cluster " ChipLogFormatMEI " on Endpoint 0x%" PRIx16,
+                          ChipLogValueMEI(concretePath.mClusterId), concretePath.mEndpointId);
         }
 
         // TODO:in particular different reasons for ServerClusterCommandExists to test false should result in different errors here
-        AddStatus(path, Protocols::InteractionModel::Status::InvalidCommand);
+        AddStatus(concretePath, Protocols::InteractionModel::Status::InvalidCommand);
     }
 
     // We have handled the error status above and put the error status in response, now return success status so we can process
@@ -275,17 +291,11 @@ CHIP_ERROR CommandHandler::AddStatusInternal(const ConcreteCommandPath & aComman
                                              const Protocols::InteractionModel::Status aStatus,
                                              const Optional<ClusterStatus> & aClusterStatus)
 {
-    StatusIB::Builder statusIBBuilder;
     StatusIB statusIB;
-
-    CommandPathParams commandPathParams = { aCommandPath.mEndpointId,
-                                            0, // GroupId
-                                            aCommandPath.mClusterId, aCommandPath.mCommandId,
-                                            chip::app::CommandPathFlags::kEndpointIdValid };
-
-    ReturnLogErrorOnFailure(PrepareStatus(commandPathParams));
-    statusIBBuilder = mInvokeResponseBuilder.GetInvokeResponses().GetInvokeResponse().GetStatus().CreateErrorStatus();
-
+    ReturnLogErrorOnFailure(PrepareStatus(aCommandPath));
+    CommandStatusIB::Builder & commandStatus = mInvokeResponseBuilder.GetInvokeResponses().GetInvokeResponse().GetStatus();
+    StatusIB::Builder & statusIBBuilder      = commandStatus.CreateErrorStatus();
+    ReturnErrorOnFailure(commandStatus.GetError());
     //
     // TODO: Most of the callers are incorrectly passing SecureChannel as the protocol ID, when in fact, the status code provided
     // above is always an IM code. Instead of fixing all the callers (which is a fairly sizeable change), we'll embark on fixing
@@ -294,7 +304,7 @@ CHIP_ERROR CommandHandler::AddStatusInternal(const ConcreteCommandPath & aComman
     statusIB.mStatus        = aStatus;
     statusIB.mClusterStatus = aClusterStatus;
     statusIBBuilder.EncodeStatusIB(statusIB);
-    ReturnLogErrorOnFailure(statusIBBuilder.GetError());
+    ReturnErrorOnFailure(statusIBBuilder.GetError());
     return FinishStatus();
 }
 
@@ -316,24 +326,22 @@ CHIP_ERROR CommandHandler::AddClusterSpecificFailure(const ConcreteCommandPath &
     return AddStatusInternal(aCommandPath, Protocols::InteractionModel::Status::Failure, clusterStatus);
 }
 
-CHIP_ERROR CommandHandler::PrepareResponse(const ConcreteCommandPath & aRequestCommandPath, CommandId aResponseCommand)
-{
-    CommandPathParams params = { aRequestCommandPath.mEndpointId,
-                                 0, // GroupId
-                                 aRequestCommandPath.mClusterId, aResponseCommand, (CommandPathFlags::kEndpointIdValid) };
-    return PrepareCommand(params, false /* aStartDataStruct */);
-}
-
-CHIP_ERROR CommandHandler::PrepareCommand(const CommandPathParams & aCommandPathParams, bool aStartDataStruct)
+CHIP_ERROR CommandHandler::PrepareCommand(const ConcreteCommandPath & aCommandPath, bool aStartDataStruct)
 {
     ReturnErrorOnFailure(AllocateBuffer());
     //
     // We must not be in the middle of preparing a command, or having prepared or sent one.
     //
     VerifyOrReturnError(mState == CommandState::Idle, CHIP_ERROR_INCORRECT_STATE);
-    CommandDataIB::Builder commandData = mInvokeResponseBuilder.GetInvokeResponses().CreateInvokeResponse().CreateCommand();
+    InvokeResponseIBs::Builder & invokeResponses = mInvokeResponseBuilder.GetInvokeResponses();
+    InvokeResponseIB::Builder & invokeResponse   = invokeResponses.CreateInvokeResponse();
+    ReturnErrorOnFailure(invokeResponses.GetError());
+
+    CommandDataIB::Builder & commandData = invokeResponse.CreateCommand();
     ReturnErrorOnFailure(commandData.GetError());
-    ReturnErrorOnFailure(ConstructCommandPath(aCommandPathParams, commandData.CreatePath()));
+    CommandPathIB::Builder & path = commandData.CreatePath();
+    ReturnErrorOnFailure(commandData.GetError());
+    ReturnErrorOnFailure(path.Encode(aCommandPath));
     if (aStartDataStruct)
     {
         ReturnErrorOnFailure(commandData.GetWriter()->StartContainer(TLV::ContextTag(to_underlying(CommandDataIB::Tag::kData)),
@@ -359,16 +367,21 @@ CHIP_ERROR CommandHandler::FinishCommand(bool aStartDataStruct)
     return CHIP_NO_ERROR;
 }
 
-CHIP_ERROR CommandHandler::PrepareStatus(const CommandPathParams & aCommandPathParams)
+CHIP_ERROR CommandHandler::PrepareStatus(const ConcreteCommandPath & aCommandPath)
 {
     ReturnErrorOnFailure(AllocateBuffer());
     //
     // We must not be in the middle of preparing a command, or having prepared or sent one.
     //
     VerifyOrReturnError(mState == CommandState::Idle, CHIP_ERROR_INCORRECT_STATE);
-    CommandStatusIB::Builder commandStatus = mInvokeResponseBuilder.GetInvokeResponses().CreateInvokeResponse().CreateStatus();
+    InvokeResponseIBs::Builder & invokeResponses = mInvokeResponseBuilder.GetInvokeResponses();
+    InvokeResponseIB::Builder & invokeResponse   = invokeResponses.CreateInvokeResponse();
+    ReturnErrorOnFailure(invokeResponses.GetError());
+    CommandStatusIB::Builder & commandStatus = invokeResponse.CreateStatus();
     ReturnErrorOnFailure(commandStatus.GetError());
-    ReturnErrorOnFailure(ConstructCommandPath(aCommandPathParams, commandStatus.CreatePath()));
+    CommandPathIB::Builder & path = commandStatus.CreatePath();
+    ReturnErrorOnFailure(commandStatus.GetError());
+    ReturnErrorOnFailure(path.Encode(aCommandPath));
     MoveToState(CommandState::AddingCommand);
     return CHIP_NO_ERROR;
 }

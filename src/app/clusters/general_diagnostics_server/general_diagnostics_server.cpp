@@ -35,6 +35,13 @@ using chip::DeviceLayer::ConnectivityMgr;
 using chip::DeviceLayer::DiagnosticDataProvider;
 using chip::DeviceLayer::GetDiagnosticDataProvider;
 
+static_assert(sizeof(DiagnosticDataProvider::BootReasonType) == sizeof(EmberAfBootReasonType),
+              "BootReasonType size doesn't match EmberAfBootReasonType size");
+static_assert(static_cast<uint8_t>(DiagnosticDataProvider::BootReasonType::Unspecified) == EMBER_ZCL_BOOT_REASON_TYPE_UNSPECIFIED &&
+                  static_cast<uint8_t>(DiagnosticDataProvider::BootReasonType::SoftwareReset) ==
+                      EMBER_ZCL_BOOT_REASON_TYPE_SOFTWARE_RESET,
+              "BootReasonType and EmberAfBootReasonType values does not match.");
+
 namespace {
 
 class GeneralDiagosticsAttrAccess : public AttributeAccessInterface
@@ -82,7 +89,7 @@ CHIP_ERROR GeneralDiagosticsAttrAccess::ReadListIfSupported(CHIP_ERROR (Diagnost
 
     if ((GetDiagnosticDataProvider().*getter)(faultList) == CHIP_NO_ERROR)
     {
-        err = aEncoder.EncodeList([&faultList](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+        err = aEncoder.EncodeList([&faultList](const auto & encoder) -> CHIP_ERROR {
             for (auto fault : faultList)
             {
                 ReturnErrorOnFailure(encoder.Encode(fault));
@@ -106,7 +113,7 @@ CHIP_ERROR GeneralDiagosticsAttrAccess::ReadNetworkInterfaces(AttributeValueEnco
 
     if (DeviceLayer::GetDiagnosticDataProvider().GetNetworkInterfaces(&netifs) == CHIP_NO_ERROR)
     {
-        err = aEncoder.EncodeList([&netifs](const TagBoundEncoder & encoder) -> CHIP_ERROR {
+        err = aEncoder.EncodeList([&netifs](const auto & encoder) -> CHIP_ERROR {
             for (DeviceLayer::NetworkInterface * ifp = netifs; ifp != nullptr; ifp = ifp->Next)
             {
                 ReturnErrorOnFailure(encoder.Encode(*ifp));
@@ -178,7 +185,7 @@ class GeneralDiagnosticsDelegate : public DeviceLayer::ConnectivityManagerDelega
                 MatterReportingAttributeChangeCallback(endpoint, GeneralDiagnostics::Id, static_cast<AttributeId>(context));
                 return Loop::Continue;
             },
-            attribute);
+            static_cast<intptr_t>(attribute));
     }
 
     // Gets called when any network interface on the Node is updated.
