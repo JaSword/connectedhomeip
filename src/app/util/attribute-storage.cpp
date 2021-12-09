@@ -440,7 +440,7 @@ static EmberAfStatus typeSensitiveMemCopy(ClusterId clusterId, uint8_t * dest, u
     bool ignoreReadLength = write || (readLength == 0);
     uint16_t bufferSize   = ignoreReadLength ? am->size : readLength;
 
-    if (/*ZCL_DESCRIPTOR_CLUSTER_ID*/0x001D == clusterId) ChipLogDetail(Zcl, "Sword Debugging AttributeType=0x%02x, IsWrite=%d, Index=%d",attributeType, write, index);
+    // if (/*ZCL_DESCRIPTOR_CLUSTER_ID*/0x001D == clusterId) ChipLogDetail(Zcl, "Sword Debugging AttributeType=0x%02x, IsWrite=%d, Index=%d", attributeType, write, index);
     if (emberAfIsStringAttributeType(attributeType))
     {
         if (bufferSize < 1)

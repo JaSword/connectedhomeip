@@ -293,12 +293,21 @@ AttestationVerificationResult DefaultDACVerifier::VerifyAttestationInformation(c
     attestationError = ValidateCertificationDeclarationSignature(certificationDeclarationSpan, certificationDeclarationPayload);
     VerifyOrReturnError(attestationError == AttestationVerificationResult::kSuccess, attestationError);
 
+    #if 0
     DeviceInfoForAttestation deviceInfo{
         .vendorId    = 0xFFF1,
         .productId   = 0x8000, // TODO: Retrieve vendorId and ProductId from Basic Information Cluster
         .dacVendorId = dacVendorId,
         .paiVendorId = dacVendorId,
     };
+    #endif
+    // Modified By Sword
+    DeviceInfoForAttestation deviceInfo;
+    deviceInfo.vendorId    = 0xFFF1;
+    deviceInfo.productId   = 0x8000; // TODO: Retrieve vendorId and ProductId from Basic Information Cluster
+    deviceInfo.dacVendorId = dacVendorId;
+    deviceInfo.paiVendorId = dacVendorId;
+    
     VerifyOrReturnError(ExtractDNAttributeFromX509Cert(MatterOid::kProductId, dacDerBuffer, deviceInfo.dacProductId) ==
                             CHIP_NO_ERROR,
                         AttestationVerificationResult::kDacFormatInvalid);

@@ -41,6 +41,9 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <unistd.h>
+// Added By Sword
+#include <sys/syscall.h>
+#define gettid() syscall(SYS_gettid)
 
 using namespace ::chip::app::Clusters;
 
