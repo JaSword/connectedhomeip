@@ -417,6 +417,7 @@ CHIP_ERROR UDPEndPointImplSockets::SendMsgImpl(const IPPacketInfo * aPktInfo, Sy
     {
         return CHIP_ERROR_OUTBOUND_MESSAGE_TOO_BIG;
     }
+    // ChipLogDetail(Inet, "Sword Debugging Call UDPEndPointImplSockets::SendMsgImpl Sucessfully, mAddrType:%d", (int)mAddrType);
     return CHIP_NO_ERROR;
 }
 

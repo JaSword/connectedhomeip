@@ -245,6 +245,9 @@ CHIP_ERROR SessionManager::SendPreparedMessage(SessionHandle sessionHandle, cons
                         " at monotonic time: %" PRId64 " msec",
                         "plaintext", &preparedMessage, preparedMessage.GetMessageCounter(), ChipLogValueX64(kUndefinedNodeId),
                         System::SystemClock().GetMonotonicMilliseconds64().count());
+        ChipLogProgress(Inet,
+                        "Sword Debugging Destination is IPv6:%d, Port:%d, TransportType:%d", destination->GetIPAddress().IsIPv6(), \
+                        destination->GetPort(), (int)(destination->GetTransportType()));
     }
 
     PacketBufferHandle msgBuf = preparedMessage.CastToWritable();

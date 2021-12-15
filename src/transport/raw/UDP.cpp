@@ -97,6 +97,7 @@ void UDP::Close()
 
 CHIP_ERROR UDP::SendMessage(const Transport::PeerAddress & address, System::PacketBufferHandle && msgBuf)
 {
+    ChipLogDetail(Inet, "Sword Debugging Enter UDP::SendMessage()");
     VerifyOrReturnError(address.GetTransportType() == Type::kUdp, CHIP_ERROR_INVALID_ARGUMENT);
     VerifyOrReturnError(mState == State::kInitialized, CHIP_ERROR_INCORRECT_STATE);
     VerifyOrReturnError(mUDPEndPoint != nullptr, CHIP_ERROR_INCORRECT_STATE);
@@ -107,6 +108,10 @@ CHIP_ERROR UDP::SendMessage(const Transport::PeerAddress & address, System::Pack
     addrInfo.DestAddress = address.GetIPAddress();
     addrInfo.DestPort    = address.GetPort();
     addrInfo.Interface   = address.GetInterface();
+
+    char addrBuffer[Inet::IPAddress::kMaxStringLength];
+    addrInfo.DestAddress.ToString(addrBuffer);
+    ChipLogDetail(Inet, "Sword Debugging DestAddress:%s", addrBuffer);
 
     return mUDPEndPoint->SendMsg(&addrInfo, std::move(msgBuf));
 }

@@ -46,6 +46,7 @@ CHIP_ERROR CHIPCommand::Run()
     chip::Controller::FactoryInitParams factoryInitParams;
     factoryInitParams.fabricStorage = &mFabricStorage;
     factoryInitParams.listenPort    = static_cast<uint16_t>(mDefaultStorage.GetListenPort() + CurrentCommissionerIndex());
+    ChipLogDetail(chipTool, "Sword Debugging ListenPort:%u", factoryInitParams.listenPort);
     ReturnLogErrorOnFailure(DeviceControllerFactory::GetInstance().Init(factoryInitParams));
 
     ReturnLogErrorOnFailure(InitializeCommissioner(GetIdentity(), CurrentCommissionerIndex()));
@@ -200,6 +201,7 @@ CHIP_ERROR CHIPCommand::StartWaiting(chip::System::Clock::Timeout duration)
         if (!cvWaitingForResponse.wait_until(lk, waitingUntil, [this]() { return !this->mWaitingForResponse; }))
         {
             mCommandExitStatus = CHIP_ERROR_TIMEOUT;
+            if (0 == strcmp("commissioners", GetName())) mCommandExitStatus = CHIP_NO_ERROR; // Modified By Sword
         }
     }
     LogErrorOnFailure(chip::DeviceLayer::PlatformMgr().StopEventLoopTask());
